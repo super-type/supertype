@@ -1,3 +1,5 @@
-module github.com/YOUR-USER-OR-ORG-NAME/YOUR-REPO-NAME
+module github.com/super-type/supertype
 
 go 1.14
+
+require github.com/gorilla/mux v1.7.4
