@@ -1,12 +1,24 @@
 package main
 
 import (
-	"github.com/super-type/supertype/pkg/cmd/supertype"
+	"fmt"
+	"log"
+	"net/http"
+
+	"github.com/super-type/supertype/pkg/authenticating"
+
+	"github.com/super-type/supertype/pkg/http/rest"
+	"github.com/super-type/supertype/pkg/storage/dynamo"
 )
 
 func main() {
-	// TODO should we have this be err := supertype.RunApplication and check for errors here?
-	// TODO should CheckError just be in the supertype package?
-	supertype.RunApplication()
-	// cmd.CheckError(err)
+	// Set up storage. Can easily add more and interchange as development continues
+	s := new(dynamo.Storage)
+
+	// Initialize services. Can easily add more and interchange as development continues
+	authenticator := authenticating.NewService(s)
+
+	router := rest.Router(authenticator)
+	fmt.Println("starting server on port 8080...")
+	log.Fatal(http.ListenAndServe(":8080", router))
 }
