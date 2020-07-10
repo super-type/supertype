@@ -3,7 +3,6 @@ package authenticating
 import (
 	"crypto/ecdsa"
 	"errors"
-	"fmt"
 )
 
 // ErrVendorNotFound is used when a vendor is not found in the database
@@ -16,13 +15,13 @@ var ErrVendorAlreadyExists = errors.New("Vendor already exists")
 // ? Should we capitalize repository? It seems to be best practice to do so... but I don't see why?
 type repository interface {
 	CreateVendor(Vendor) (map[*ecdsa.PublicKey]*ecdsa.PrivateKey, error)
-	LoginVendor(Vendor) error
+	LoginVendor(Vendor) (*string, error)
 }
 
 // Service provides authenticating operations
 type Service interface {
 	CreateVendor(Vendor) (map[*ecdsa.PublicKey]*ecdsa.PrivateKey, error)
-	LoginVendor(Vendor)
+	LoginVendor(Vendor) (*string, error)
 }
 
 type service struct {
@@ -44,9 +43,10 @@ func (s *service) CreateVendor(v Vendor) (map[*ecdsa.PublicKey]*ecdsa.PrivateKey
 }
 
 // LoginVendor logs in a vendor
-func (s *service) LoginVendor(v Vendor) {
-	err := s.r.LoginVendor(v)
+func (s *service) LoginVendor(v Vendor) (*string, error) {
+	result, err := s.r.LoginVendor(v)
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
+	return result, nil
 }

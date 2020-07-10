@@ -1,11 +1,9 @@
 package rest
 
 import (
-	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"net/http"
 
 	"github.com/super-type/supertype/internal/keys"
@@ -24,12 +22,6 @@ func Router(a authenticating.Service) *mux.Router {
 	router.HandleFunc("/createVendor", createVendor(a)).Methods("POST")
 
 	return router
-}
-
-type Capsule struct {
-	E *ecdsa.PublicKey
-	V *ecdsa.PublicKey
-	S *big.Int
 }
 
 func healthcheck() func(w http.ResponseWriter, r *http.Request) {
@@ -100,7 +92,6 @@ func healthcheck() func(w http.ResponseWriter, r *http.Request) {
 // loginVendor returns a handler for POST /loginVendor requests
 func loginVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Get new vendor details from client
 		decoder := json.NewDecoder(r.Body)
 
 		// ? should should this be authenticating, or storage?
@@ -111,16 +102,19 @@ func loginVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.R
 			return
 		}
 
-		a.LoginVendor(vendor)
+		jwt, err := a.LoginVendor(vendor)
+		if err != nil {
+			fmt.Printf("Error logging vendor in\n")
+			// TODO return here with error message
+		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode("Logged in vendor.")
+		json.NewEncoder(w).Encode(jwt)
 	}
 }
 
 func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Get new vendor details from client
 		decoder := json.NewDecoder(r.Body)
 
 		// ? should should this be authenticating, or storage?
@@ -134,6 +128,7 @@ func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.
 		result, err := a.CreateVendor(vendor)
 		if err != nil {
 			fmt.Printf("Error creating vendor\n")
+			// TODO return here with error message
 		}
 
 		// TODO log user in after creating account
