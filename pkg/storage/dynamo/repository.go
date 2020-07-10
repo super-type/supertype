@@ -131,7 +131,7 @@ func (d *Storage) CreateVendor(vendor authenticating.Vendor) (map[*ecdsa.PublicK
 }
 
 // LoginVendor logs in the given vendor to the repository
-func (d *Storage) LoginVendor(v authenticating.Vendor) error {
+func (d *Storage) LoginVendor(v authenticating.Vendor) (*string, error) {
 	// Initialize AWS Session
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
@@ -139,34 +139,58 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) error {
 
 	// Create DynamoDB client
 	svc := dynamodb.New(sess)
-
 	tableName := "vendor"
-	username := v.Username
 
+	// Check vendor exists and get object
 	result, err := svc.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String(tableName),
 		Key: map[string]*dynamodb.AttributeValue{
 			"username": {
-				S: aws.String(username),
+				S: aws.String(v.Username),
 			},
 		},
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	vendor := Vendor{}
+	vendor := authenticating.Vendor{}
 	err = dynamodbattribute.UnmarshalMap(result.Item, &vendor)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if vendor.Username == "" {
-		return authenticating.ErrVendorNotFound
+		return nil, authenticating.ErrVendorNotFound
 	}
 
-	// TODO remove check username from lambda function
-	// TODO create and call a lambda function to verify vendor using NuID
+	// Authenticate with NuID
+	requestBody, err := json.Marshal(map[string]string{
+		// TODO we need a better way to do this
+		"password":    v.Password,
+		"supertypeID": vendor.SupertypeID,
+	})
+	if err != nil {
+		fmt.Printf("Error encoding JSON: %v\n", err)
+		return nil, err
+	}
 
-	return nil
+	resp, err := http.Post("https://z1lwetrbfe.execute-api.us-east-1.amazonaws.com/default/login-vendor", "application/json", bytes.NewBuffer(requestBody))
+	if err != nil {
+		fmt.Printf("API Error: %v\n", err)
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response body: %v\n", err)
+		return nil, err
+	}
+
+	var jwt *string
+	json.Unmarshal([]byte(string(body)), &jwt)
+
+	return jwt, nil
 }
