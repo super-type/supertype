@@ -47,7 +47,7 @@ This system aims to follow domain driven design as closely as possible. All busi
 
 ## Architecture (as of 07/05/2020)
 
-This system aims to implement a hexagonal architecture. Simply put, this means that there are layers (framework, application, domain, and core domain) with dependencies only pointing inwards.
+This system aims to implement a hexagonal architecture. Simply put, this means that there are layers (framework, application, domain, and core domain) with dependencies only pointing inwards. We want things to be as interchangeable as possible, especially for a system like Supertype. While we're only initially interacting with DynamoDB, we may eventually seek to communicate with different types of databases, or store data in a more cost-efficient and temporary way, such as on IPFS. By creating a generic `Repository` interface, for example, it becomes trivial to replace the source of that `Repository` as we see fit, whether that's DynamoDB, MongoDB, or IPFS - as long as the overall implementation remains the same.
 
 ## Troubleshooting 
 
