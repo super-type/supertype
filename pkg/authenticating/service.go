@@ -2,14 +2,7 @@ package authenticating
 
 import (
 	"crypto/ecdsa"
-	"errors"
 )
-
-// ErrVendorNotFound is used when a vendor is not found in the database
-var ErrVendorNotFound = errors.New("Vendor not found")
-
-// ErrVendorAlreadyExists is used when attempting to create an already-used username
-var ErrVendorAlreadyExists = errors.New("Vendor already exists")
 
 // Repository provides access to relevant authentication storage
 // ? Should we capitalize repository? It seems to be best practice to do so... but I don't see why?

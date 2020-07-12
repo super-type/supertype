@@ -2,20 +2,24 @@ package rest
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	"github.com/super-type/supertype/pkg/authenticating"
 )
 
+// LoginResponse is response returned from API
+type LoginResponse struct {
+	JWT string `json:"jwt"`
+}
+
 // Router is the main router for the application
 func Router(a authenticating.Service) *mux.Router {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/healthcheck", healthcheck()).Methods("GET")
-	router.HandleFunc("/loginVendor", loginVendor(a)).Methods("POST")
-	router.HandleFunc("/createVendor", createVendor(a)).Methods("POST")
+	router.HandleFunc("/healthcheck", healthcheck()).Methods("GET", "OPTIONS")
+	router.HandleFunc("/loginVendor", loginVendor(a)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/createVendor", createVendor(a)).Methods("POST", "OPTIONS")
 
 	return router
 }
@@ -29,6 +33,16 @@ func healthcheck() func(w http.ResponseWriter, r *http.Request) {
 // loginVendor returns a handler for POST /loginVendor requests
 func loginVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		// TODO disable this block when publishing, this is used to enable CORS for local testing
+		(w).Header().Set("Access-Control-Allow-Origin", "*")
+		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		if (r).Method == "OPTIONS" {
+			return
+		}
+
 		decoder := json.NewDecoder(r.Body)
 
 		// ? should should this be authenticating, or storage?
@@ -41,12 +55,14 @@ func loginVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.R
 
 		jwt, err := a.LoginVendor(vendor)
 		if err != nil {
-			fmt.Printf("Error logging vendor in\n")
-			// TODO return here with error message
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(jwt)
+		lr := LoginResponse{
+			JWT: *jwt,
+		}
+		json.NewEncoder(w).Encode(lr)
 	}
 }
 
@@ -64,8 +80,8 @@ func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.
 
 		result, err := a.CreateVendor(vendor)
 		if err != nil {
-			fmt.Printf("Error creating vendor\n")
-			// TODO return here with error message
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
 		// TODO log user in after creating account
