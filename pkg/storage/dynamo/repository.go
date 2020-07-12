@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/super-type/supertype/pkg/storage"
 
 	"github.com/super-type/supertype/internal/utils"
 
@@ -45,25 +46,23 @@ func (d *Storage) CreateVendor(vendor authenticating.Vendor) (map[*ecdsa.PublicK
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, storage.ErrFailedToReadDB
 	}
 
 	v := Vendor{}
 	err = dynamodbattribute.UnmarshalMap(result.Item, &v)
 	if err != nil {
-		return nil, err
+		return nil, storage.ErrUnmarshaling
 	}
 
 	if v.Username != "" {
-		fmt.Printf("Vendor %v already exists\n", v.Username)
 		return nil, authenticating.ErrVendorAlreadyExists
 	}
 
 	// Generate key pair for new vendor
 	skVendor, pkVendor, err := keys.GenerateKeys()
 	if err != nil {
-		fmt.Printf("Error generating keys: %v\n", err)
-		return nil, err
+		return nil, keys.ErrFailedToGenerateKeys
 	}
 
 	// Generate Supertype ID
@@ -71,22 +70,19 @@ func (d *Storage) CreateVendor(vendor authenticating.Vendor) (map[*ecdsa.PublicK
 		"password": vendor.Password,
 	})
 	if err != nil {
-		fmt.Printf("Error encoding JSON: %v\n", err)
-		return nil, err
+		return nil, storage.ErrMarshaling
 	}
 
 	resp, err := http.Post("https://z1lwetrbfe.execute-api.us-east-1.amazonaws.com/default/generate-nuid-credentials", "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
-		fmt.Printf("API Error: %v\n", err)
-		return nil, err
+		return nil, authenticating.ErrRequestingAPI
 	}
 
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading response body: %v\n", err)
-		return nil, err
+		return nil, authenticating.ErrResponseBody
 	}
 
 	var supertypeID string
@@ -109,8 +105,7 @@ func (d *Storage) CreateVendor(vendor authenticating.Vendor) (map[*ecdsa.PublicK
 	// Upload new vendor to DynamoDB
 	av, err := dynamodbattribute.MarshalMap(createVendor)
 	if err != nil {
-		fmt.Printf("Error marshalling vendor: %v\n", createVendor)
-		return nil, err
+		return nil, storage.ErrMarshaling
 	}
 
 	input := &dynamodb.PutItemInput{
@@ -120,11 +115,9 @@ func (d *Storage) CreateVendor(vendor authenticating.Vendor) (map[*ecdsa.PublicK
 
 	_, err = svc.PutItem(input)
 	if err != nil {
-		fmt.Printf("Error adding item to DynamoDB: %v\n", err)
-		return nil, err
+		return nil, storage.ErrFailedToWriteDB
 	}
 
-	fmt.Printf("Successfully added vendor %v, with SupertypeID %v\n", vendor.PublicKey, vendor.SupertypeID)
 	keyPair := map[*ecdsa.PublicKey]*ecdsa.PrivateKey{pkVendor: skVendor}
 
 	return keyPair, nil
@@ -151,13 +144,13 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*string, error) {
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, storage.ErrFailedToReadDB
 	}
 
 	vendor := authenticating.Vendor{}
 	err = dynamodbattribute.UnmarshalMap(result.Item, &vendor)
 	if err != nil {
-		return nil, err
+		return nil, storage.ErrUnmarshaling
 	}
 
 	if vendor.Username == "" {
@@ -171,22 +164,19 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*string, error) {
 		"supertypeID": vendor.SupertypeID,
 	})
 	if err != nil {
-		fmt.Printf("Error encoding JSON: %v\n", err)
-		return nil, err
+		return nil, storage.ErrEncoding
 	}
 
 	resp, err := http.Post("https://z1lwetrbfe.execute-api.us-east-1.amazonaws.com/default/login-vendor", "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
-		fmt.Printf("API Error: %v\n", err)
-		return nil, err
+		return nil, authenticating.ErrRequestingAPI
 	}
 
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading response body: %v\n", err)
-		return nil, err
+		return nil, authenticating.ErrResponseBody
 	}
 
 	var jwt *string
