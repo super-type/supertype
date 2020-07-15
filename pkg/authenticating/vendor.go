@@ -21,3 +21,13 @@ type CreateVendor struct {
 	SupertypeID string            `json:"supertypeID"`
 	Connections map[string]string `json:"connections"`
 }
+
+// AuthenticatedVendor is a password-less struct including the JWT returned to the user
+type AuthenticatedVendor struct {
+	FirstName   string `json:"firstName"`
+	LastName    string `json:"lastName"`
+	Username    string `json:"username"`
+	PublicKey   string `json:"pk"`
+	SupertypeID string `json:"supertypeID"`
+	JWT         string `json:"jwt"`
+}

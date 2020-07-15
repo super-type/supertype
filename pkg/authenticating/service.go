@@ -8,13 +8,13 @@ import (
 // ? Should we capitalize repository? It seems to be best practice to do so... but I don't see why?
 type repository interface {
 	CreateVendor(Vendor) (map[*ecdsa.PublicKey]*ecdsa.PrivateKey, error)
-	LoginVendor(Vendor) (*string, error)
+	LoginVendor(Vendor) (*AuthenticatedVendor, error)
 }
 
 // Service provides authenticating operations
 type Service interface {
 	CreateVendor(Vendor) (map[*ecdsa.PublicKey]*ecdsa.PrivateKey, error)
-	LoginVendor(Vendor) (*string, error)
+	LoginVendor(Vendor) (*AuthenticatedVendor, error)
 }
 
 type service struct {
@@ -36,7 +36,7 @@ func (s *service) CreateVendor(v Vendor) (map[*ecdsa.PublicKey]*ecdsa.PrivateKey
 }
 
 // LoginVendor logs in a vendor
-func (s *service) LoginVendor(v Vendor) (*string, error) {
+func (s *service) LoginVendor(v Vendor) (*AuthenticatedVendor, error) {
 	result, err := s.r.LoginVendor(v)
 	if err != nil {
 		return nil, err

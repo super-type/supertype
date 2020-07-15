@@ -8,11 +8,6 @@ import (
 	"github.com/super-type/supertype/pkg/authenticating"
 )
 
-// LoginResponse is response returned from API
-type LoginResponse struct {
-	JWT string `json:"jwt"`
-}
-
 // Router is the main router for the application
 func Router(a authenticating.Service) *mux.Router {
 	router := mux.NewRouter()
@@ -53,16 +48,13 @@ func loginVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.R
 			return
 		}
 
-		jwt, err := a.LoginVendor(vendor)
+		result, err := a.LoginVendor(vendor)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		lr := LoginResponse{
-			JWT: *jwt,
-		}
-		json.NewEncoder(w).Encode(lr)
+		json.NewEncoder(w).Encode(result)
 	}
 }
 
