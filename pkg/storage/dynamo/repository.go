@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -24,16 +25,37 @@ type Storage struct {
 	vendor Vendor
 }
 
-// CreateVendor creates a new vendor and adds it to DynamoDB
-func (d *Storage) CreateVendor(vendor authenticating.Vendor) (map[*ecdsa.PublicKey]*ecdsa.PrivateKey, error) {
-	// TODO call a lambda to generate both an encrypting key pair and a verifying key pair
-	// Initialize AWS session
+func setupAWSSession() *dynamodb.DynamoDB {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 
 	// Create DynamoDB client
 	svc := dynamodb.New(sess)
+	return svc
+}
+
+func listAllVendors(svc *dynamodb.DynamoDB) {
+	input := &dynamodb.ScanInput{
+		ExpressionAttributeNames: map[string]*string{
+			"#pk": aws.String("pk"),
+		},
+		ProjectionExpression: aws.String("#pk"),
+		TableName:            aws.String("vendor"),
+	}
+
+	result, err := svc.Scan(input)
+	if err != nil {
+		fmt.Printf("Err scanning vendor table: %v\n", err)
+	}
+
+	fmt.Printf("result: %v\n", result)
+}
+
+// CreateVendor creates a new vendor and adds it to DynamoDB
+func (d *Storage) CreateVendor(vendor authenticating.Vendor) (map[*ecdsa.PublicKey]*ecdsa.PrivateKey, error) {
+	// Initialize AWS session
+	svc := setupAWSSession()
 	tableName := "vendor"
 
 	// Check username doesn't exist
@@ -120,18 +142,16 @@ func (d *Storage) CreateVendor(vendor authenticating.Vendor) (map[*ecdsa.PublicK
 
 	keyPair := map[*ecdsa.PublicKey]*ecdsa.PrivateKey{pkVendor: skVendor}
 
+	// TODO re-encrypt the new vendor between its public key and all other vendors' public keys
+	listAllVendors(svc)
+
 	return keyPair, nil
 }
 
 // LoginVendor logs in the given vendor to the repository
-func (d *Storage) LoginVendor(v authenticating.Vendor) (*string, error) {
+func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.AuthenticatedVendor, error) {
 	// Initialize AWS Session
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-
-	// Create DynamoDB client
-	svc := dynamodb.New(sess)
+	svc := setupAWSSession()
 	tableName := "vendor"
 
 	// Check vendor exists and get object
@@ -147,7 +167,7 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*string, error) {
 		return nil, storage.ErrFailedToReadDB
 	}
 
-	vendor := authenticating.Vendor{}
+	vendor := authenticating.AuthenticatedVendor{}
 	err = dynamodbattribute.UnmarshalMap(result.Item, &vendor)
 	if err != nil {
 		return nil, storage.ErrUnmarshaling
@@ -181,6 +201,7 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*string, error) {
 
 	var jwt *string
 	json.Unmarshal([]byte(string(body)), &jwt)
+	vendor.JWT = *jwt
 
-	return jwt, nil
+	return &vendor, nil
 }

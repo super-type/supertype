@@ -53,7 +53,6 @@ func encryptKeyGen(pubKey *ecdsa.PublicKey) (capsule *Capsule, keyBytes []byte, 
 }
 
 // Encrypt the message
-// AES GCM + Proxy Re-Encryption
 func Encrypt(message string, pubKey *ecdsa.PublicKey) (cipherText []byte, capsule *Capsule, err error) {
 	capsule, keyBytes, err := encryptKeyGen(pubKey)
 	if err != nil {
@@ -142,7 +141,7 @@ func ReKeyGen(aPriKey *ecdsa.PrivateKey, bPubKey *ecdsa.PublicKey) (*big.Int, *e
 	return rk, pubX, nil
 }
 
-// Server executes Re-Encryption method
+// ReEncryption actually computes re-encryption
 func ReEncryption(rk *big.Int, capsule *Capsule) (*Capsule, error) {
 	// check g^s == V * E^{H2(E || V)}
 	x1, y1 := keys.CURVE.ScalarBaseMult(capsule.S.Bytes())
