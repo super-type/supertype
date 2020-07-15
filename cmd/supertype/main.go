@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/super-type/supertype/pkg/authenticating"
 
+	"github.com/fatih/color"
 	"github.com/super-type/supertype/pkg/http/rest"
 	"github.com/super-type/supertype/pkg/storage/dynamo"
 )
@@ -19,6 +19,6 @@ func main() {
 	authenticator := authenticating.NewService(s)
 
 	router := rest.Router(authenticator)
-	fmt.Println("starting server on port 8080...")
+	color.Cyan("Starting server on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

@@ -17,8 +17,11 @@ Therefore, we will start with a monolith. Once we have a specific service within
 > I believe that taking this a step further and not just providing a history of decisions through git commits, but a thorough, history of the product as a whole is crucial to its longevity and its ability to maintain or gain traction over time. I have seen teams spend months getting acclimated with a product. Digging through the codebase(s), reading git histories, taking part in many knowledge transfer sessions over many weeks. However, most questions about the codebase (often something along the lines of "why the *fuck* would A have done B back in 20CC?") would be answered once someone uncovered a decision made at the time which led to the code in qeustion, and oftentimes code for the subsequent couple of weeks. Looking atomically at a piece of code in a years-old repository will often lead to hours of head-scratching that could be largely abated by a clear and explanatory product history outlining initial design/architecture decisions, significant changes made to the codebase, workarounds, and discussions about what fit where. At Supertype, there is not such thing as too long of a README - too *short* a README is when things get concerning...
 >
 > Update the README whenever you feel it's necessary. Be sure to update the "as of" addendum to each section, so that future developers can combine information from this README with a comprehensive git history for a comprehensive understanding of the product as a whole.
-> 
-> -- Carter Klein
+
+## Build & Run
+1. `git clone https://github.com/super-type/supertype`
+2. `cd supertype`
+3. `make run`
 
 ## Design (as of 07/05/2020)
 
