@@ -32,7 +32,7 @@ func loginVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.R
 		(w).Header().Set("Access-Control-Allow-Origin", "*")
 		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		if (r).Method == "OPTIONS" {
+		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
 			return
 		}
 
@@ -63,6 +63,9 @@ func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.
 		(w).Header().Set("Access-Control-Allow-Origin", "*")
 		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+			return
+		}
 		decoder := json.NewDecoder(r.Body)
 
 		// ? should should this be authenticating, or storage?
