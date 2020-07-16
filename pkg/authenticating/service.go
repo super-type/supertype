@@ -1,19 +1,15 @@
 package authenticating
 
-import (
-	"crypto/ecdsa"
-)
-
 // Repository provides access to relevant authentication storage
 // ? Should we capitalize repository? It seems to be best practice to do so... but I don't see why?
 type repository interface {
-	CreateVendor(Vendor) (map[*ecdsa.PublicKey]*ecdsa.PrivateKey, error)
+	CreateVendor(Vendor) (*[2]string, error)
 	LoginVendor(Vendor) (*AuthenticatedVendor, error)
 }
 
 // Service provides authenticating operations
 type Service interface {
-	CreateVendor(Vendor) (map[*ecdsa.PublicKey]*ecdsa.PrivateKey, error)
+	CreateVendor(Vendor) (*[2]string, error)
 	LoginVendor(Vendor) (*AuthenticatedVendor, error)
 }
 
@@ -27,7 +23,7 @@ func NewService(r repository) Service {
 }
 
 // CreateVendor creates a vendor
-func (s *service) CreateVendor(v Vendor) (map[*ecdsa.PublicKey]*ecdsa.PrivateKey, error) {
+func (s *service) CreateVendor(v Vendor) (*[2]string, error) {
 	result, err := s.r.CreateVendor(v)
 	if err != nil {
 		return nil, err
