@@ -3,7 +3,6 @@ package dynamo
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -32,6 +31,9 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 
 	// Get username from DynamoDB
 	result, err := GetFromDynamoDB(svc, tableName, "username", v.Username)
+	if err != nil {
+		return nil, err
+	}
 	vendor := Vendor{}
 	err = dynamodbattribute.UnmarshalMap(result.Item, &vendor)
 	if err != nil {
@@ -61,22 +63,23 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	if err != nil {
 		return nil, storage.ErrGetListPublicKeys
 	}
-	rekeys, err := CreateReencryptionKeys(&pkList, skVendor)
+	rekeys, err := CreateReencryptionKeys(pkList, skVendor)
 	if err != nil {
 		return nil, keys.ErrFailedToGenerateReencryptionKeys
 	}
 
 	// Create a final vendor with which to upload
 	createVendor := authenticating.CreateVendor{
-		FirstName:   v.FirstName,
-		LastName:    v.LastName,
-		Username:    v.Username,
-		PublicKey:   utils.PublicKeyToString(pkVendor),
-		SupertypeID: *supertypeID,
-		Connections: rekeys,
+		FirstName:      v.FirstName,
+		LastName:       v.LastName,
+		Email:          v.Email,
+		BusinessName:   v.BusinessName,
+		Username:       v.Username,
+		PublicKey:      utils.PublicKeyToString(pkVendor),
+		SupertypeID:    *supertypeID,
+		Connections:    rekeys,
+		AccountBalance: 0.0,
 	}
-
-	fmt.Printf("createvendor: %v\n", createVendor)
 
 	// Upload new vendor to DynamoDB
 	av, err := dynamodbattribute.MarshalMap(createVendor)
@@ -106,6 +109,9 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.Authenti
 
 	// Get username from DynamoDB
 	result, err := GetFromDynamoDB(svc, tableName, "username", v.Username)
+	if err != nil {
+		return nil, err
+	}
 	vendor := authenticating.AuthenticatedVendor{}
 	err = dynamodbattribute.UnmarshalMap(result.Item, &vendor)
 	if err != nil {
