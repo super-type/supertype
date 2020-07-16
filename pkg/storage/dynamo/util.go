@@ -78,7 +78,7 @@ func GetFromDynamoDB(svc *dynamodb.DynamoDB, tableName string, attribute string,
 func CreateReencryptionKeys(pkList *dynamodb.ScanOutput, skVendor *ecdsa.PrivateKey) (map[string][2]string, error) {
 	connections := make(map[string][2]string)
 
-	for i := 1; i < len(pkList.Items); i++ { // TODO not start at 1. Only doing now because entry 1 was a NuCypher pk
+	for i := 0; i < len(pkList.Items); i++ {
 		pkTempStr := *(pkList.Items[i]["pk"].S)
 		pkTemp, err := utils.StringToPublicKey(&pkTempStr)
 		if err != nil {
@@ -102,7 +102,7 @@ func CreateReencryptionKeys(pkList *dynamodb.ScanOutput, skVendor *ecdsa.Private
 
 // EstablishInitialConnections creates re-encryption keys between a newly-created vendor and all existing vendors
 // TODO we will allow more granular access controls on vendor creation as we continue
-func EstablishInitialConnections(svc *dynamodb.DynamoDB, pkVendor *string) (dynamodb.ScanOutput, error) {
+func EstablishInitialConnections(svc *dynamodb.DynamoDB, pkVendor *string) (*dynamodb.ScanOutput, error) {
 	// Get all vendors' pks, except the vendor's own
 	input := &dynamodb.ScanInput{
 		ExpressionAttributeNames: map[string]*string{
@@ -121,7 +121,8 @@ func EstablishInitialConnections(svc *dynamodb.DynamoDB, pkVendor *string) (dyna
 	result, err := svc.Scan(input)
 	if err != nil {
 		fmt.Printf("Err scanning vendor table: %v\n", err)
+		return nil, err
 	}
 
-	return *result, nil
+	return result, nil
 }

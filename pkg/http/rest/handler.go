@@ -90,13 +90,16 @@ func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.
 
 		// TODO do we need a new object for this...?
 		result := authenticating.AuthenticatedVendorFirstLogin{
-			FirstName:   authenticatedVendor.FirstName,
-			LastName:    authenticatedVendor.LastName,
-			Username:    authenticatedVendor.Username,
-			PublicKey:   keyPair[0],
-			PrivateKey:  keyPair[1],
-			SupertypeID: authenticatedVendor.SupertypeID,
-			JWT:         authenticatedVendor.JWT,
+			FirstName:      authenticatedVendor.FirstName,
+			LastName:       authenticatedVendor.LastName,
+			Email:          authenticatedVendor.Email,
+			BusinessName:   authenticatedVendor.BusinessName,
+			Username:       authenticatedVendor.Username,
+			PublicKey:      keyPair[0],
+			PrivateKey:     keyPair[1],
+			SupertypeID:    authenticatedVendor.SupertypeID,
+			JWT:            authenticatedVendor.JWT,
+			AccountBalance: authenticatedVendor.AccountBalance,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
