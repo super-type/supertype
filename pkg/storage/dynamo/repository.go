@@ -2,7 +2,6 @@ package dynamo
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -13,7 +12,6 @@ import (
 	"github.com/super-type/supertype/internal/utils"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/super-type/supertype/internal/keys"
@@ -25,59 +23,23 @@ type Storage struct {
 	vendor Vendor
 }
 
-func setupAWSSession() *dynamodb.DynamoDB {
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-
-	// Create DynamoDB client
-	svc := dynamodb.New(sess)
-	return svc
-}
-
-func listAllVendors(svc *dynamodb.DynamoDB) {
-	input := &dynamodb.ScanInput{
-		ExpressionAttributeNames: map[string]*string{
-			"#pk": aws.String("pk"),
-		},
-		ProjectionExpression: aws.String("#pk"),
-		TableName:            aws.String("vendor"),
-	}
-
-	result, err := svc.Scan(input)
-	if err != nil {
-		fmt.Printf("Err scanning vendor table: %v\n", err)
-	}
-
-	fmt.Printf("result: %v\n", result)
-}
+var tableName = "vendor"
 
 // CreateVendor creates a new vendor and adds it to DynamoDB
-func (d *Storage) CreateVendor(vendor authenticating.Vendor) (map[*ecdsa.PublicKey]*ecdsa.PrivateKey, error) {
+func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	// Initialize AWS session
-	svc := setupAWSSession()
-	tableName := "vendor"
+	svc := SetupAWSSession()
 
-	// Check username doesn't exist
-	result, err := svc.GetItem(&dynamodb.GetItemInput{
-		TableName: aws.String(tableName),
-		Key: map[string]*dynamodb.AttributeValue{
-			"username": {
-				S: aws.String(vendor.Username),
-			},
-		},
-	})
-	if err != nil {
-		return nil, storage.ErrFailedToReadDB
-	}
-
-	v := Vendor{}
-	err = dynamodbattribute.UnmarshalMap(result.Item, &v)
+	// Get username from DynamoDB
+	result, err := GetFromDynamoDB(svc, tableName, "username", v.Username)
+	vendor := Vendor{}
+	err = dynamodbattribute.UnmarshalMap(result.Item, &vendor)
 	if err != nil {
 		return nil, storage.ErrUnmarshaling
 	}
 
-	if v.Username != "" {
+	// Check username doesn't exist
+	if vendor.Username != "" {
 		return nil, authenticating.ErrVendorAlreadyExists
 	}
 
@@ -88,41 +50,33 @@ func (d *Storage) CreateVendor(vendor authenticating.Vendor) (map[*ecdsa.PublicK
 	}
 
 	// Generate Supertype ID
-	requestBody, err := json.Marshal(map[string]string{
-		"password": vendor.Password,
-	})
+	supertypeID, err := GenerateSupertypeID(v.Password)
 	if err != nil {
-		return nil, storage.ErrMarshaling
+		return nil, err
 	}
 
-	resp, err := http.Post("https://z1lwetrbfe.execute-api.us-east-1.amazonaws.com/default/generate-nuid-credentials", "application/json", bytes.NewBuffer(requestBody))
+	// Generate re-encryption keys
+	pk := utils.PublicKeyToString(pkVendor)
+	pkList, err := EstablishInitialConnections(svc, &pk)
 	if err != nil {
-		return nil, authenticating.ErrRequestingAPI
+		return nil, storage.ErrGetListPublicKeys
+	}
+	rekeys, err := CreateReencryptionKeys(&pkList, skVendor)
+	if err != nil {
+		return nil, keys.ErrFailedToGenerateReencryptionKeys
 	}
 
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, authenticating.ErrResponseBody
-	}
-
-	var supertypeID string
-	json.Unmarshal([]byte(string(body)), &supertypeID)
-
-	// Finalize attributes for new Supertype user
-	vendor.PublicKey = utils.PublicKeyToString(pkVendor)
-	vendor.SupertypeID = supertypeID
-	vendor.Connections = make(map[string]string)
-
+	// Create a final vendor with which to upload
 	createVendor := authenticating.CreateVendor{
-		FirstName:   vendor.FirstName,
-		LastName:    vendor.LastName,
-		Username:    vendor.Username,
+		FirstName:   v.FirstName,
+		LastName:    v.LastName,
+		Username:    v.Username,
 		PublicKey:   utils.PublicKeyToString(pkVendor),
-		SupertypeID: supertypeID,
-		Connections: make(map[string]string),
+		SupertypeID: *supertypeID,
+		Connections: rekeys,
 	}
+
+	fmt.Printf("createvendor: %v\n", createVendor)
 
 	// Upload new vendor to DynamoDB
 	av, err := dynamodbattribute.MarshalMap(createVendor)
@@ -140,46 +94,31 @@ func (d *Storage) CreateVendor(vendor authenticating.Vendor) (map[*ecdsa.PublicK
 		return nil, storage.ErrFailedToWriteDB
 	}
 
-	keyPair := map[*ecdsa.PublicKey]*ecdsa.PrivateKey{pkVendor: skVendor}
+	keyPair := [2]string{utils.PublicKeyToString(pkVendor), utils.PrivateKeyToString(skVendor)}
 
-	// TODO re-encrypt the new vendor between its public key and all other vendors' public keys
-	listAllVendors(svc)
-
-	return keyPair, nil
+	return &keyPair, nil
 }
 
 // LoginVendor logs in the given vendor to the repository
 func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.AuthenticatedVendor, error) {
 	// Initialize AWS Session
-	svc := setupAWSSession()
-	tableName := "vendor"
+	svc := SetupAWSSession()
 
-	// Check vendor exists and get object
-	result, err := svc.GetItem(&dynamodb.GetItemInput{
-		TableName: aws.String(tableName),
-		Key: map[string]*dynamodb.AttributeValue{
-			"username": {
-				S: aws.String(v.Username),
-			},
-		},
-	})
-	if err != nil {
-		return nil, storage.ErrFailedToReadDB
-	}
-
+	// Get username from DynamoDB
+	result, err := GetFromDynamoDB(svc, tableName, "username", v.Username)
 	vendor := authenticating.AuthenticatedVendor{}
 	err = dynamodbattribute.UnmarshalMap(result.Item, &vendor)
 	if err != nil {
 		return nil, storage.ErrUnmarshaling
 	}
 
+	// Check vendor exists and get object
 	if vendor.Username == "" {
 		return nil, authenticating.ErrVendorNotFound
 	}
 
 	// Authenticate with NuID
 	requestBody, err := json.Marshal(map[string]string{
-		// TODO we need a better way to do this
 		"password":    v.Password,
 		"supertypeID": vendor.SupertypeID,
 	})

@@ -28,8 +28,6 @@ func healthcheck() func(w http.ResponseWriter, r *http.Request) {
 // loginVendor returns a handler for POST /loginVendor requests
 func loginVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
 		// TODO disable this block when publishing, this is used to enable CORS for local testing
 		(w).Header().Set("Access-Control-Allow-Origin", "*")
 		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
@@ -54,12 +52,17 @@ func loginVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.R
 			return
 		}
 
+		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(result)
 	}
 }
 
 func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// TODO disable this block when publishing, this is used to enable CORS for local testing
+		(w).Header().Set("Access-Control-Allow-Origin", "*")
+		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 		decoder := json.NewDecoder(r.Body)
 
 		// ? should should this be authenticating, or storage?
@@ -70,16 +73,30 @@ func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.
 			return
 		}
 
-		result, err := a.CreateVendor(vendor)
+		keyPair, err := a.CreateVendor(vendor)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// TODO log user in after creating account
-		// TODO create re-encryption keys between this user and others
+		authenticatedVendor, err := a.LoginVendor(vendor)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// TODO do we need a new object for this...?
+		result := authenticating.AuthenticatedVendorFirstLogin{
+			FirstName:   authenticatedVendor.FirstName,
+			LastName:    authenticatedVendor.LastName,
+			Username:    authenticatedVendor.Username,
+			PublicKey:   keyPair[0],
+			PrivateKey:  keyPair[1],
+			SupertypeID: authenticatedVendor.SupertypeID,
+			JWT:         authenticatedVendor.JWT,
+		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(result) // TODO return the JWT from login here...
+		json.NewEncoder(w).Encode(result)
 	}
 }

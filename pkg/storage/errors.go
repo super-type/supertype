@@ -16,3 +16,6 @@ var ErrMarshaling = errors.New("Error marshaling vendor")
 
 // ErrEncoding is used when we fail to encode JSON data
 var ErrEncoding = errors.New("Error encoding JSON data")
+
+// ErrGetListPublicKeys is used when we fail to get a list of public keys for a given vendor
+var ErrGetListPublicKeys = errors.New("Error getting list of public keys")

@@ -3,7 +3,9 @@ package utils
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"github.com/super-type/supertype/internal/keys"
@@ -71,4 +73,20 @@ func PrivateKeyToString(privateKey *ecdsa.PrivateKey) string {
 func PublicKeyToString(publicKey *ecdsa.PublicKey) string {
 	pubKeyBytes := keys.PointToBytes(publicKey)
 	return hex.EncodeToString(pubKeyBytes)
+}
+
+// StringToPublicKey converts a string back into an ECDSA Public Key
+func StringToPublicKey(pkString *string) (ecdsa.PublicKey, error) {
+	pkTempBytes, err := hex.DecodeString(*pkString)
+	if err != nil {
+		fmt.Printf("Error decoding bytes from string: %v\n", err) // TODO return more meaningful error
+	}
+	x, y := elliptic.Unmarshal(elliptic.P256(), pkTempBytes)
+	publicKeyFinal := ecdsa.PublicKey{
+		Curve: elliptic.P256(),
+		X:     x,
+		Y:     y,
+	}
+
+	return publicKeyFinal, nil
 }
