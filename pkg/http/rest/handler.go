@@ -6,15 +6,17 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/super-type/supertype/pkg/authenticating"
+	"github.com/super-type/supertype/pkg/producing"
 )
 
 // Router is the main router for the application
-func Router(a authenticating.Service) *mux.Router {
+func Router(a authenticating.Service, p producing.Service) *mux.Router {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/healthcheck", healthcheck()).Methods("GET", "OPTIONS")
 	router.HandleFunc("/loginVendor", loginVendor(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/createVendor", createVendor(a)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/produce", produce(p)).Methods("POST", "OPTIONS")
 
 	return router
 }
@@ -104,5 +106,34 @@ func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(result)
+	}
+}
+
+func produce(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// TODO disable this block when publishing, this is used to enable CORS for local testing
+		(w).Header().Set("Access-Control-Allow-Origin", "*")
+		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+
+		var observation producing.Observation
+		err := decoder.Decode(&observation)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		err = p.Produce(observation)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		json.NewEncoder(w).Encode("Done")
 	}
 }
