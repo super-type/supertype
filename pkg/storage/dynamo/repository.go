@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"time"
+
+	"github.com/super-type/supertype/pkg/producing"
 
 	"github.com/super-type/supertype/pkg/storage"
 
@@ -19,7 +22,8 @@ import (
 
 // Storage keeps data in dynamo
 type Storage struct {
-	vendor Vendor
+	vendor      Vendor
+	observation Observation
 }
 
 var tableName = "vendor"
@@ -97,7 +101,10 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 		return nil, storage.ErrFailedToWriteDB
 	}
 
-	keyPair := [2]string{utils.PublicKeyToString(pkVendor), utils.PrivateKeyToString(skVendor)}
+	// TODO change this back in case we need it. Maybe storing the D value is fine?
+	// keyPair := [2]string{utils.PublicKeyToString(pkVendor), utils.PrivateKeyToString(skVendor)}
+	// todo research if this is safe enough to have user "store" as their secret key... stored offline of course
+	keyPair := [2]string{utils.PublicKeyToString(pkVendor), skVendor.D.String()}
 
 	return &keyPair, nil
 }
@@ -149,4 +156,38 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.Authenti
 	vendor.JWT = *jwt
 
 	return &vendor, nil
+}
+
+// Produce produces encyrpted data to Supertype
+func (d *Storage) Produce(o producing.Observation) error {
+	// Initialize AWS session
+	svc := SetupAWSSession()
+
+	// Get current time
+	currentTime := time.Now()
+
+	// Create an observation to upload to DynamoDB
+	observation := Observation{
+		Ciphertext: o.Ciphertext,
+		Capsule:    o.Capsule,
+		DateAdded:  currentTime.Format("2006-01-02 15:04:05.000000000"),
+	}
+
+	// Upload new observation to DynamoDB
+	av, err := dynamodbattribute.MarshalMap(observation)
+	if err != nil {
+		return storage.ErrMarshaling
+	}
+
+	input := &dynamodb.PutItemInput{
+		Item:      av,
+		TableName: &o.Attribute,
+	}
+
+	_, err = svc.PutItem(input)
+	if err != nil {
+		return storage.ErrFailedToWriteDB
+	}
+
+	return nil
 }
