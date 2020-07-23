@@ -1,13 +1,13 @@
 package producing
 
-// Repository provides access to relevant authentication storage
+// Repository provides access to relevant storage
 type repository interface {
-	Produce(Observation) error
+	Produce(ObservationRequest) error
 }
 
 // Service provides producing operations
 type Service interface {
-	Produce(Observation) error
+	Produce(ObservationRequest) error
 }
 
 type service struct {
@@ -20,7 +20,7 @@ func NewService(r repository) Service {
 }
 
 // Produce produces encrypted data to Supertype
-func (s *service) Produce(o Observation) error {
+func (s *service) Produce(o ObservationRequest) error {
 	err := s.r.Produce(o)
 	if err != nil {
 		return err

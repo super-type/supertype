@@ -1,10 +1,12 @@
 package producing
 
-// Observation defines an encrypted vendor observation
+// ObservationRequest defines an encrypted vendor observation
 // TODO add IDs to observations
 // TODO add vendor signing to observations
-type Observation struct {
-	Attribute  string `json:"attribute"`
-	Ciphertext string `json:"ciphertext"`
-	Capsule    string `json:"capsule"`
+type ObservationRequest struct {
+	Attribute   string `json:"attribute"`
+	Ciphertext  string `json:"ciphertext"`
+	Capsule     string `json:"capsule"`
+	PublicKey   string `json:"pk"`
+	SupertypeID string `json:"supertypeID"`
 }

@@ -19,3 +19,6 @@ var ErrEncoding = errors.New("Error encoding JSON data")
 
 // ErrGetListPublicKeys is used when we fail to get a list of public keys for a given vendor
 var ErrGetListPublicKeys = errors.New("Error getting list of public keys")
+
+// ErrNoObservationsForEntity is used when a vendor requests an observation for an entity who has no observations
+var ErrNoObservationsForEntity = errors.New("No observations found for entity")
