@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/super-type/supertype/pkg/consuming"
+
 	"github.com/super-type/supertype/pkg/producing"
 
 	"github.com/super-type/supertype/pkg/storage"
@@ -21,6 +23,7 @@ import (
 )
 
 // Storage keeps data in dynamo
+// TODO right now these vars are never used. Should we, instead of doing unmarhsal into a new &vendor, for example, do it into this vendor here?
 type Storage struct {
 	vendor      Vendor
 	observation Observation
@@ -159,7 +162,7 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.Authenti
 }
 
 // Produce produces encyrpted data to Supertype
-func (d *Storage) Produce(o producing.Observation) error {
+func (d *Storage) Produce(o producing.ObservationRequest) error {
 	// Initialize AWS session
 	svc := SetupAWSSession()
 
@@ -167,14 +170,19 @@ func (d *Storage) Produce(o producing.Observation) error {
 	currentTime := time.Now()
 
 	// Create an observation to upload to DynamoDB
-	observation := Observation{
+	d.observation = Observation{
 		Ciphertext: o.Ciphertext,
-		Capsule:    o.Capsule,
-		DateAdded:  currentTime.Format("2006-01-02 15:04:05.000000000"),
+		// Capsule:     o.Capsule,
+		CapsuleE:    o.CapsuleE,
+		CapsuleV:    o.CapsuleV,
+		CapsuleS:    o.CapsuleS,
+		DateAdded:   currentTime.Format("2006-01-02 15:04:05.000000000"),
+		PublicKey:   o.PublicKey,
+		SupertypeID: o.SupertypeID,
 	}
 
 	// Upload new observation to DynamoDB
-	av, err := dynamodbattribute.MarshalMap(observation)
+	av, err := dynamodbattribute.MarshalMap(d.observation)
 	if err != nil {
 		return storage.ErrMarshaling
 	}
@@ -190,4 +198,148 @@ func (d *Storage) Produce(o producing.Observation) error {
 	}
 
 	return nil
+}
+
+// Consume returns all observations at the requested attribute for the specified Supertype entity
+func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.ObservationResponse, error) {
+	// Initialize AWS session
+	svc := SetupAWSSession()
+
+	// Get all observations for the specified attribute with user's Supertype ID
+	input := &dynamodb.ScanInput{
+		ExpressionAttributeNames: map[string]*string{
+			"#ciphertext": aws.String("ciphertext"),
+			// "#capsule":     aws.String("capsule"),
+			"#capsuleE":    aws.String("capsuleE"),
+			"#capsuleV":    aws.String("capsuleV"),
+			"#capsuleS":    aws.String("capsuleS"),
+			"#dateAdded":   aws.String("dateAdded"),
+			"#pk":          aws.String("pk"),          // ? do we need this
+			"#supertypeID": aws.String("supertypeID"), // ? do we need this
+		},
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":supertypeID": {
+				S: aws.String(c.SupertypeID),
+			},
+		},
+		FilterExpression:     aws.String("supertypeID = :supertypeID"),
+		ProjectionExpression: aws.String("#ciphertext, #capsuleE, #capsuleV, #capsuleS, #dateAdded, #pk, #supertypeID"),
+		TableName:            aws.String(c.Attribute),
+	}
+
+	result, err := svc.Scan(input)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get observations from result
+	observations := make([]consuming.ObservationResponse, 0)
+	for _, observation := range result.Items {
+		tempObservation := consuming.ObservationResponse{
+			Ciphertext:  *(observation["ciphertext"].S),
+			CapsuleE:    *(observation["capsuleE"].S),
+			CapsuleV:    *(observation["capsuleV"].S),
+			CapsuleS:    *(observation["capsuleS"].S),
+			DateAdded:   *(observation["dateAdded"].S),
+			PublicKey:   *(observation["pk"].S),
+			SupertypeID: *(observation["supertypeID"].S),
+		}
+		observations = append(observations, tempObservation)
+	}
+
+	// Get the rekey, pkX for each observation and add it to the response (adds nothing if it's from the consuming vendor)
+	for i, observation := range observations {
+		if observation.PublicKey != c.PublicKey {
+			input = &dynamodb.ScanInput{
+				ExpressionAttributeNames: map[string]*string{
+					"#connections": aws.String("connections"),
+				},
+				ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+					":pk": {
+						S: aws.String(observation.PublicKey),
+					},
+				},
+				FilterExpression:     aws.String("pk = :pk"),
+				ProjectionExpression: aws.String("#connections"),
+				TableName:            aws.String("vendor"),
+			}
+
+			result, err := svc.Scan(input)
+			if err != nil {
+				return nil, err
+			}
+
+			// rekey, pkX for associated <pkObservation, pkVendor>
+			// todo add result items null checker
+			connectionMetadata := result.Items[0]["connections"].M[c.PublicKey].L
+			rekey := connectionMetadata[0].S
+			pkX := connectionMetadata[1].S
+
+			reencryptionMetadata := [2]string{*rekey, *pkX}
+			observations[i].ReencryptionMetadata = reencryptionMetadata
+		}
+		// TODO put something in here...
+	}
+
+	return &observations, nil
+}
+
+// GetVendorComparisonMetadata returns lists of both all vendors, and all of the requesting vendors' connections
+// TODO once we implement a system to replicate DynamoDB data in Elasticsearch, we should use Elasticsearch
+func (d *Storage) GetVendorComparisonMetadata(o producing.ObservationRequest) (*producing.MetadataResponse, error) {
+	// Initialize AWS session
+	svc := SetupAWSSession()
+
+	// Get all vendor public keys
+	input := &dynamodb.ScanInput{
+		ExpressionAttributeNames: map[string]*string{
+			"#pk": aws.String("pk"),
+		},
+		ProjectionExpression: aws.String("#pk"),
+		TableName:            aws.String("vendor"),
+	}
+
+	vendors, err := svc.Scan(input)
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate through vendor PK AWS response
+	var pkVendors []string
+	for i := range vendors.Items {
+		pkVendors = append(pkVendors, *vendors.Items[i]["pk"].S)
+	}
+
+	// Get connections of requesting vendor
+	input = &dynamodb.ScanInput{
+		ExpressionAttributeNames: map[string]*string{
+			"#connections": aws.String("connections"),
+		},
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":pk": {
+				S: aws.String(o.PublicKey),
+			},
+		},
+		FilterExpression:     aws.String("pk = :pk"),
+		ProjectionExpression: aws.String("#connections"),
+		TableName:            aws.String("vendor"),
+	}
+
+	connections, err := svc.Scan(input)
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate through connections keys (i.e. public keys of vendors we have connections for)
+	var pkConnections []string
+	for k := range connections.Items[0]["connections"].M {
+		pkConnections = append(pkConnections, k)
+	}
+
+	response := producing.MetadataResponse{
+		VendorConnections: pkConnections,
+		Vendors:           pkVendors,
+	}
+
+	return &response, nil
 }
