@@ -55,3 +55,7 @@ This system aims to implement a hexagonal architecture. Simply put, this means t
 ## Troubleshooting 
 
 - Ensure your AWS Security Tokens are set! They should be saved on your machine, and you configure them by running `aws configure` (assuming you have the AWS CLI set up)
+
+## TODO 
+- go into architecture
+- go into database structure (how we have a global secondary index on pk in vendor because we use it for adding re-encryption keys)
