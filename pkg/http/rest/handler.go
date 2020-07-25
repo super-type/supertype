@@ -21,6 +21,7 @@ func Router(a authenticating.Service, p producing.Service, c consuming.Service) 
 	router.HandleFunc("/produce", produce(p)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/consume", consume(c)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/getVendorComparisonMetadata", getVendorComparisonMetadata(p)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/addReencryptionKeys", addReencryptionKeys(p)).Methods("POST", "OPTIONS")
 
 	return router
 }
@@ -208,5 +209,35 @@ func getVendorComparisonMetadata(p producing.Service) func(w http.ResponseWriter
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(metadata)
+	}
+}
+
+func addReencryptionKeys(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// TODO disable this block when consuming, this is used to enable CORS for local testing
+		(w).Header().Set("Access-Control-Allow-Origin", "*")
+		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+
+		var rekeyRequest producing.ReencryptionKeysRequest
+		err := decoder.Decode(&rekeyRequest)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		err = p.AddReencryptionKeys(rekeyRequest)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode("OK")
 	}
 }
