@@ -3,11 +3,13 @@ package producing
 // Repository provides access to relevant storage
 type repository interface {
 	Produce(ObservationRequest) error
+	GetVendorComparisonMetadata(ObservationRequest) (*MetadataResponse, error)
 }
 
 // Service provides producing operations
 type Service interface {
 	Produce(ObservationRequest) error
+	GetVendorComparisonMetadata(ObservationRequest) (*MetadataResponse, error)
 }
 
 type service struct {
@@ -26,4 +28,12 @@ func (s *service) Produce(o ObservationRequest) error {
 		return err
 	}
 	return nil
+}
+
+func (s *service) GetVendorComparisonMetadata(o ObservationRequest) (*MetadataResponse, error) {
+	metadata, err := s.r.GetVendorComparisonMetadata(o)
+	if err != nil {
+		return nil, err
+	}
+	return metadata, nil
 }

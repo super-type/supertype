@@ -3,7 +3,6 @@ package dynamo
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -110,9 +109,6 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	// todo research if this is safe enough to have user "store" as their secret key... stored offline of course
 	keyPair := [2]string{utils.PublicKeyToString(pkVendor), skVendor.D.String()}
 
-	fmt.Printf("pk: %v\n", keyPair[0])
-	fmt.Printf("sk: %v\n", keyPair[1])
-
 	return &keyPair, nil
 }
 
@@ -175,8 +171,11 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 
 	// Create an observation to upload to DynamoDB
 	d.observation = Observation{
-		Ciphertext:  o.Ciphertext,
-		Capsule:     o.Capsule,
+		Ciphertext: o.Ciphertext,
+		// Capsule:     o.Capsule,
+		CapsuleE:    o.CapsuleE,
+		CapsuleV:    o.CapsuleV,
+		CapsuleS:    o.CapsuleS,
 		DateAdded:   currentTime.Format("2006-01-02 15:04:05.000000000"),
 		PublicKey:   o.PublicKey,
 		SupertypeID: o.SupertypeID,
@@ -209,8 +208,11 @@ func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.Observat
 	// Get all observations for the specified attribute with user's Supertype ID
 	input := &dynamodb.ScanInput{
 		ExpressionAttributeNames: map[string]*string{
-			"#ciphertext":  aws.String("ciphertext"),
-			"#capsule":     aws.String("capsule"),
+			"#ciphertext": aws.String("ciphertext"),
+			// "#capsule":     aws.String("capsule"),
+			"#capsuleE":    aws.String("capsuleE"),
+			"#capsuleV":    aws.String("capsuleV"),
+			"#capsuleS":    aws.String("capsuleS"),
 			"#dateAdded":   aws.String("dateAdded"),
 			"#pk":          aws.String("pk"),          // ? do we need this
 			"#supertypeID": aws.String("supertypeID"), // ? do we need this
@@ -221,7 +223,7 @@ func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.Observat
 			},
 		},
 		FilterExpression:     aws.String("supertypeID = :supertypeID"),
-		ProjectionExpression: aws.String("#ciphertext, #capsule, #dateAdded, #pk, #supertypeID"),
+		ProjectionExpression: aws.String("#ciphertext, #capsuleE, #capsuleV, #capsuleS, #dateAdded, #pk, #supertypeID"),
 		TableName:            aws.String(c.Attribute),
 	}
 
@@ -235,7 +237,9 @@ func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.Observat
 	for _, observation := range result.Items {
 		tempObservation := consuming.ObservationResponse{
 			Ciphertext:  *(observation["ciphertext"].S),
-			Capsule:     *(observation["capsule"].S),
+			CapsuleE:    *(observation["capsuleE"].S),
+			CapsuleV:    *(observation["capsuleV"].S),
+			CapsuleS:    *(observation["capsuleS"].S),
 			DateAdded:   *(observation["dateAdded"].S),
 			PublicKey:   *(observation["pk"].S),
 			SupertypeID: *(observation["supertypeID"].S),
@@ -252,7 +256,7 @@ func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.Observat
 				},
 				ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 					":pk": {
-						S: aws.String(c.PublicKey),
+						S: aws.String(observation.PublicKey),
 					},
 				},
 				FilterExpression:     aws.String("pk = :pk"),
@@ -265,19 +269,77 @@ func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.Observat
 				return nil, err
 			}
 
-			// rekey, pkX for associated <pkVendor, pkObservation>
-			connectionMetadata := result.Items[0]["connections"].M[observation.PublicKey].L
+			// rekey, pkX for associated <pkObservation, pkVendor>
+			// todo add result items null checker
+			connectionMetadata := result.Items[0]["connections"].M[c.PublicKey].L
 			rekey := connectionMetadata[0].S
 			pkX := connectionMetadata[1].S
 
 			reencryptionMetadata := [2]string{*rekey, *pkX}
 			observations[i].ReencryptionMetadata = reencryptionMetadata
 		}
-	}
-
-	for _, obs := range observations {
-		fmt.Printf("Observation: %v\n", obs.ReencryptionMetadata)
+		// TODO put something in here...
 	}
 
 	return &observations, nil
+}
+
+// GetVendorComparisonMetadata returns lists of both all vendors, and all of the requesting vendors' connections
+// TODO once we implement a system to replicate DynamoDB data in Elasticsearch, we should use Elasticsearch
+func (d *Storage) GetVendorComparisonMetadata(o producing.ObservationRequest) (*producing.MetadataResponse, error) {
+	// Initialize AWS session
+	svc := SetupAWSSession()
+
+	// Get all vendor public keys
+	input := &dynamodb.ScanInput{
+		ExpressionAttributeNames: map[string]*string{
+			"#pk": aws.String("pk"),
+		},
+		ProjectionExpression: aws.String("#pk"),
+		TableName:            aws.String("vendor"),
+	}
+
+	vendors, err := svc.Scan(input)
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate through vendor PK AWS response
+	var pkVendors []string
+	for i := range vendors.Items {
+		pkVendors = append(pkVendors, *vendors.Items[i]["pk"].S)
+	}
+
+	// Get connections of requesting vendor
+	input = &dynamodb.ScanInput{
+		ExpressionAttributeNames: map[string]*string{
+			"#connections": aws.String("connections"),
+		},
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":pk": {
+				S: aws.String(o.PublicKey),
+			},
+		},
+		FilterExpression:     aws.String("pk = :pk"),
+		ProjectionExpression: aws.String("#connections"),
+		TableName:            aws.String("vendor"),
+	}
+
+	connections, err := svc.Scan(input)
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate through connections keys (i.e. public keys of vendors we have connections for)
+	var pkConnections []string
+	for k := range connections.Items[0]["connections"].M {
+		pkConnections = append(pkConnections, k)
+	}
+
+	response := producing.MetadataResponse{
+		VendorConnections: pkConnections,
+		Vendors:           pkVendors,
+	}
+
+	return &response, nil
 }
