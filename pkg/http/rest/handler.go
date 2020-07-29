@@ -53,7 +53,9 @@ func loginVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.R
 			return
 		}
 
-		// TODO add null check on values we need. If they're not there, throw a bad request
+		if &vendor == nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
 
 		result, err := a.LoginVendor(vendor)
 		if err != nil {
@@ -85,7 +87,9 @@ func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.
 			return
 		}
 
-		// TODO add null check on values we need. If they're not there, throw a bad request
+		if &vendor == nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
 
 		keyPair, err := a.CreateVendor(vendor)
 		if err != nil {
@@ -137,7 +141,9 @@ func produce(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// TODO add null check on values we need. If they're not there, throw a bad request
+		if &observation == nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
 
 		err = p.Produce(observation)
 		if err != nil {
@@ -168,7 +174,9 @@ func consume(c consuming.Service) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// TODO add null check on values we need. If they're not there, throw a bad request
+		if &observation == nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
 
 		res, err := c.Consume(observation)
 		if err != nil {
@@ -201,6 +209,10 @@ func getVendorComparisonMetadata(p producing.Service) func(w http.ResponseWriter
 			return
 		}
 
+		if &observation == nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+
 		metadata, err := p.GetVendorComparisonMetadata(observation)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -229,6 +241,10 @@ func addReencryptionKeys(p producing.Service) func(w http.ResponseWriter, r *htt
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
+		}
+
+		if &rekeyRequest == nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 
 		err = p.AddReencryptionKeys(rekeyRequest)
