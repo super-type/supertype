@@ -264,12 +264,11 @@ func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.Observat
 			}
 
 			result, err := svc.Scan(input)
-			if err != nil {
+			if err != nil || result.Items == nil {
 				return nil, err
 			}
 
 			// rekey, pkX for associated <pkObservation, pkVendor>
-			// todo add result items null checker
 			connectionMetadata := result.Items[0]["connections"].M[c.PublicKey].L
 			rekey := connectionMetadata[0].S
 			pkX := connectionMetadata[1].S
