@@ -18,43 +18,86 @@ Therefore, we will start with a monolith. Once we have a specific service within
 >
 > Update the README whenever you feel it's necessary. Be sure to update the "as of" addendum to each section, so that future developers can combine information from this README with a comprehensive git history for a comprehensive understanding of the product as a whole.
 
-## Build & Run
+## Build & Run Locally
 1. `git clone https://github.com/super-type/supertype`
 2. `cd supertype`
 3. `make run`
 
-## Design (as of 07/05/2020)
+## API Endpoints
 
-This system aims to follow domain driven design as closely as possible. All business logic should be clearly contained within easy-to-understand bounded contexts, using uniquitous language, wherever possible.
+**/healthcheck: (GET):** A simple healthcheck to ensure you're running everything properly
 
-**Bounded contexts** in this case means things that are consistent within a bondary. A classic example of this is that you have a typical user. From a sales context, relevant metrics about this user are cost of acquisition, hours used daily, etc. From a human resources context, relevant metrics about this user are age, record, etc. These (sales, HR) are two separate contexts, and should be handled as such within an application.
+**/loginVendor: (POST):** Logs in a pre-existing vendor to the Supertype ecosystem
+- body:
+```json
+{
+    "username": <USERNAME>,
+    "password": <PASSWORD>
+}
+```
 
-### Building blocks for a context (ex in parentheses: authentication)
+**/createvendor: (POST):** Generates a new vendor
+- body:
+```json
+{
+    "username": <USERNAME>,
+    "password": <PASSWORD>,
+    "firstName": <FIRST NAME>, // Optional
+    "lastName": <LAST NAME> // Optional
+    // TODO update with more as we create more...
+}
+```
 
-**Context:** The overall bounded context. *(Authentication)*
+**/produce: (POST):** Produces data for a specific Supertype type user from a specific vendor to the Supertype ecosystem. Also, for the time being, runs any additional necessary re-encryptions with new vendors to ensure each vendor is up to date.
+- headers:
+    - `Token` : `<JWT GENERATED ON LOGIN>`
+- body:
+```json
+{
+    "ciphertext": <CIPHERTEXT>,
+    "capsule": <CAPSULE>,
+    "attribute": <ATTRIBUTE>
+}
+```
+- **NOTE** the ciphertext and capsule are generated from the `goImplement` (or any future implementations) package
 
-**Language:** Actual language used within the codebase. An example from my past experience is when I was on a team handling something related to an aggregated pay file for clients. Across the prdoduct, I saw the language "payfile," "payFile," "paymentFile," etc... this led to endless frustration and a compeltely disjoint experience. We should strive to not replicate that. That was clearly an example of moving fast to move slow, and we do the opposite. *(login, createAccount, vendor, entity)*
+**/consume: (POST):** Consumes data for a specific user from the Supertype ecosystem, regardless of which vendor produced it
+- headers:
+    - `Token` : `<JWT GENERATED ON LOGIN>`
+- body:
+```json
+{
+    "attribute": <ATTRIBUTE>
+}
+```
 
-**Entity:** An abstract concept that could have actual instances. *(Vendor, Entity)*
+**/getVendorComparisonMetadata: (POST):** Returns collections of all vendors, as well as the currently logged-in vendor's connections, in order to determine if additional re-encryptions are necessary
+- headers:
+    - `Token` : `<JWT GENERATED ON LOGIN>`
+- body:
+```json
+{
+    "attribute": <ATTRIBUTE>,
+    "supertypeID": <SUPERTYPE ID>,
+    "pk": <VENDOR PUBLIC KEY>
+}
+```
 
-**Value Object** A value on its own that isn't an entity on its own, but is a part of it. 
-
-**Aggregate:** An object comprised of multiple entities
-
-**Service:** An operation an entity shouldn't be doing on its own *(Vendor adding, Entity adding, Vendor listing, Entity listing, etc...)*
-
-**Events:** Capture something interesting that happened in your system that effects the state of your system *(Vendor added, Entity Added, Vendor not found, etc...)*
-
-**Repository:** Sits between domain logic and actual storage or database *(Vendor respoitory, entity repsoitory)*
-- **NOTE:** while these are two separate databases within Supertype, they need not always be two separate repositories. This is an abstraction to better organize our minds.
-
-## Architecture (as of 07/05/2020)
-
-This system aims to implement a hexagonal architecture. Simply put, this means that there are layers (framework, application, domain, and core domain) with dependencies only pointing inwards. We want things to be as interchangeable as possible, especially for a system like Supertype. While we're only initially interacting with DynamoDB, we may eventually seek to communicate with different types of databases, or store data in a more cost-efficient and temporary way, such as on IPFS. By creating a generic `Repository` interface, for example, it becomes trivial to replace the source of that `Repository` as we see fit, whether that's DynamoDB, MongoDB, or IPFS - as long as the overall implementation remains the same.
+**/addReencryptionKeys: (POST):** Runs re-encryption from current vendor to any newly-created vendors, if necessary
+- headers:
+    - `Token` : `<JWT GENERATED ON LOGIN>`
+- body:
+```json
+{
+    "connections": <CONNECTIONS>,
+    "pk": <VENDOR PUBLIC KEY>
+}
+```
 
 ## Troubleshooting 
 
 - Ensure your AWS Security Tokens are set! They should be saved on your machine, and you configure them by running `aws configure` (assuming you have the AWS CLI set up)
+- Ensure you've set your environment variables (JWT, etc...)
 
 ## TODO 
 - go into architecture

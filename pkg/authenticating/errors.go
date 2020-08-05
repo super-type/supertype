@@ -13,3 +13,6 @@ var ErrRequestingAPI = errors.New("API Error")
 
 // ErrResponseBody is used when we are unable to read response body
 var ErrResponseBody = errors.New("Error reading response body")
+
+// ErrNotAuthorized is used when a request does not contain a valid token
+var ErrNotAuthorized = errors.New("Not Authorized")
