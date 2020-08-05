@@ -4,17 +4,13 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/super-type/supertype/pkg/dashboard"
-	"github.com/super-type/supertype/pkg/storage/dynamo"
-
-	"github.com/super-type/supertype/pkg/consuming"
-
-	"github.com/super-type/supertype/pkg/producing"
-
-	"github.com/super-type/supertype/pkg/authenticating"
-
 	"github.com/fatih/color"
+	"github.com/super-type/supertype/pkg/authenticating"
+	"github.com/super-type/supertype/pkg/consuming"
+	"github.com/super-type/supertype/pkg/dashboard"
 	"github.com/super-type/supertype/pkg/http/rest"
+	"github.com/super-type/supertype/pkg/producing"
+	"github.com/super-type/supertype/pkg/storage/dynamo"
 )
 
 func main() {
