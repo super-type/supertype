@@ -22,3 +22,6 @@
 
 TODO.txt
 supertype.txt
+
+# Environment variables
+*.env

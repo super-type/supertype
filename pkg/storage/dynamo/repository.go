@@ -3,7 +3,6 @@ package dynamo
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -148,13 +147,14 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.Authenti
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, authenticating.ErrResponseBody
+	if resp.StatusCode != 200 {
+		return nil, authenticating.ErrRequestingAPI
 	}
 
-	var jwt *string
-	json.Unmarshal([]byte(string(body)), &jwt)
+	jwt, err := authenticating.GenerateJWT(vendor.Username)
+	if err != nil {
+		return nil, authenticating.ErrRequestingAPI
+	}
 	vendor.JWT = *jwt
 
 	return &vendor, nil
