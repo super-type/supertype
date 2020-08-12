@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/super-type/supertype/pkg/consuming"
+	"github.com/super-type/supertype/pkg/dashboard"
 
 	"github.com/gorilla/mux"
 	"github.com/super-type/supertype/pkg/authenticating"
@@ -43,7 +44,7 @@ func isAuthorized(endpoint func(w http.ResponseWriter, r *http.Request)) func(ht
 }
 
 // Router is the main router for the application
-func Router(a authenticating.Service, p producing.Service, c consuming.Service) *mux.Router {
+func Router(a authenticating.Service, p producing.Service, c consuming.Service, d dashboard.Service) *mux.Router {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/healthcheck", healthcheck()).Methods("GET", "OPTIONS")
@@ -53,6 +54,7 @@ func Router(a authenticating.Service, p producing.Service, c consuming.Service) 
 	router.HandleFunc("/consume", isAuthorized(consume(c))).Methods("POST", "OPTIONS")
 	router.HandleFunc("/getVendorComparisonMetadata", isAuthorized(getVendorComparisonMetadata(p))).Methods("POST", "OPTIONS")
 	router.HandleFunc("/addReencryptionKeys", isAuthorized(addReencryptionKeys(p))).Methods("POST", "OPTIONS")
+	router.HandleFunc("/listObservations", isAuthorized(listObservations(d))).Methods("GET", "OPTIONS")
 
 	return router
 }
@@ -285,5 +287,26 @@ func addReencryptionKeys(p producing.Service) func(w http.ResponseWriter, r *htt
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode("OK")
+	}
+}
+
+func listObservations(d dashboard.Service) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// TODO disable this block when consuming, this is used to enable CORS for local testing
+		(w).Header().Set("Access-Control-Allow-Origin", "*")
+		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+			return
+		}
+
+		observations, err := d.ListObservations()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(observations)
 	}
 }
