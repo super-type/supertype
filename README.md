@@ -98,6 +98,7 @@ Therefore, we will start with a monolith. Once we have a specific service within
 
 - Ensure your AWS Security Tokens are set! They should be saved on your machine, and you configure them by running `aws configure` (assuming you have the AWS CLI set up)
 - Ensure you've set your environment variables (JWT, etc...)
+- When testing with Postman, ensure you're using a recent JWT by first hitting the `/loginVendor` endpoint with valid credentials and inspecting the response
 
 ## TODO 
 - go into architecture
