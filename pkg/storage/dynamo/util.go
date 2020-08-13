@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/fatih/color"
 	"github.com/super-type/supertype/internal/reencryption"
 	"github.com/super-type/supertype/internal/utils"
 	"github.com/super-type/supertype/pkg/authenticating"
@@ -23,11 +24,13 @@ func GenerateSupertypeID(password string) (*string, error) {
 		"password": password,
 	})
 	if err != nil {
+		color.Red("Error marshaling data")
 		return nil, storage.ErrMarshaling
 	}
 
 	resp, err := http.Post("https://z1lwetrbfe.execute-api.us-east-1.amazonaws.com/default/generate-nuid-credentials", "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
+		color.Red("Error requesting Supertype API")
 		return nil, authenticating.ErrRequestingAPI
 	}
 
@@ -35,6 +38,7 @@ func GenerateSupertypeID(password string) (*string, error) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		color.Red("Can't read response body")
 		return nil, authenticating.ErrResponseBody
 	}
 
@@ -67,6 +71,7 @@ func GetFromDynamoDB(svc *dynamodb.DynamoDB, tableName string, attribute string,
 		},
 	})
 	if err != nil {
+		color.Red("Failed to read from database")
 		return nil, storage.ErrFailedToReadDB
 	}
 

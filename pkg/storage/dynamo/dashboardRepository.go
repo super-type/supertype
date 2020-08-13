@@ -3,6 +3,7 @@ package dynamo
 import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/fatih/color"
 	"github.com/super-type/supertype/pkg/dashboard"
 )
 
@@ -19,8 +20,10 @@ func (d *Storage) ListObservations() ([]string, error) {
 		result, err := svc.ListTables(input)
 		if err != nil {
 			if _, ok := err.(awserr.Error); ok {
+				color.Red("Dynamo internal server error")
 				return nil, dashboard.ErrDynamoInternalError
 			}
+			color.Red("Dynamo error")
 			return nil, dashboard.ErrDynamoError
 		}
 

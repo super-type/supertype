@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/super-type/supertype/pkg/consuming"
 
 	"github.com/super-type/supertype/pkg/producing"
@@ -47,12 +48,14 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 
 	// Check username doesn't exist
 	if vendor.Username != "" {
+		color.Red("Vendor already exists")
 		return nil, authenticating.ErrVendorAlreadyExists
 	}
 
 	// Generate key pair for new vendor
 	skVendor, pkVendor, err := keys.GenerateKeys()
 	if err != nil {
+		color.Red("Failed to generate keys")
 		return nil, keys.ErrFailedToGenerateKeys
 	}
 
@@ -66,10 +69,12 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	pk := utils.PublicKeyToString(pkVendor)
 	pkList, err := EstablishInitialConnections(svc, &pk)
 	if err != nil {
+		color.Red("Failed to get list of public keys")
 		return nil, storage.ErrGetListPublicKeys
 	}
 	rekeys, err := CreateReencryptionKeys(pkList, skVendor)
 	if err != nil {
+		color.Red("Failed to generate re-encryption keys")
 		return nil, keys.ErrFailedToGenerateReencryptionKeys
 	}
 
@@ -89,6 +94,7 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	// Upload new vendor to DynamoDB
 	av, err := dynamodbattribute.MarshalMap(createVendor)
 	if err != nil {
+		color.Red("Error marshaling data")
 		return nil, storage.ErrMarshaling
 	}
 
@@ -99,6 +105,7 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 
 	_, err = svc.PutItem(input)
 	if err != nil {
+		color.Red("Failed to write to database")
 		return nil, storage.ErrFailedToWriteDB
 	}
 
@@ -123,11 +130,13 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.Authenti
 	vendor := authenticating.AuthenticatedVendor{}
 	err = dynamodbattribute.UnmarshalMap(result.Item, &vendor)
 	if err != nil {
+		color.Red("Error unmarshaling data")
 		return nil, storage.ErrUnmarshaling
 	}
 
 	// Check vendor exists and get object
 	if vendor.Username == "" {
+		color.Red("Vendor not found")
 		return nil, authenticating.ErrVendorNotFound
 	}
 
@@ -137,22 +146,26 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.Authenti
 		"supertypeID": vendor.SupertypeID,
 	})
 	if err != nil {
+		color.Red("Error encoding data")
 		return nil, storage.ErrEncoding
 	}
 
 	resp, err := http.Post("https://z1lwetrbfe.execute-api.us-east-1.amazonaws.com/default/login-vendor", "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
+		color.Red("Error requesting Supertype API")
 		return nil, authenticating.ErrRequestingAPI
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
+		color.Red("API request gave bad response status")
 		return nil, authenticating.ErrRequestingAPI
 	}
 
 	jwt, err := authenticating.GenerateJWT(vendor.Username)
 	if err != nil {
+		color.Red("Could not generate JWT")
 		return nil, authenticating.ErrRequestingAPI
 	}
 	vendor.JWT = *jwt
@@ -183,6 +196,7 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 	// Upload new observation to DynamoDB
 	av, err := dynamodbattribute.MarshalMap(d.observation)
 	if err != nil {
+		color.Red("Error marshaling data")
 		return storage.ErrMarshaling
 	}
 
@@ -193,6 +207,7 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 
 	_, err = svc.PutItem(input)
 	if err != nil {
+		color.Red("Failed to write to database")
 		return storage.ErrFailedToWriteDB
 	}
 
