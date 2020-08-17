@@ -3,45 +3,13 @@ package rest
 import (
 	"encoding/json"
 	"net/http"
-	"os"
-
-	"github.com/dgrijalva/jwt-go"
-	"github.com/joho/godotenv"
-
-	"github.com/super-type/supertype/pkg/consuming"
-	"github.com/super-type/supertype/pkg/dashboard"
 
 	"github.com/gorilla/mux"
 	"github.com/super-type/supertype/pkg/authenticating"
+	"github.com/super-type/supertype/pkg/consuming"
+	"github.com/super-type/supertype/pkg/dashboard"
 	"github.com/super-type/supertype/pkg/producing"
 )
-
-func isAuthorized(endpoint func(w http.ResponseWriter, r *http.Request)) func(http.ResponseWriter, *http.Request) {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header["Token"] != nil {
-			token, err := jwt.Parse(r.Header["Token"][0], func(token *jwt.Token) (interface{}, error) {
-				// Load environment variable functionality
-				err := godotenv.Load()
-				if err != nil {
-					return nil, authenticating.ErrNotAuthorized
-				}
-
-				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, authenticating.ErrNotAuthorized
-				}
-
-				return []byte(os.Getenv("JWT_SIGNING_KEY")), nil
-			})
-			if err != nil {
-				return
-			}
-
-			if token.Valid {
-				endpoint(w, r)
-			}
-		}
-	})
-}
 
 // Router is the main router for the application
 func Router(a authenticating.Service, p producing.Service, c consuming.Service, d dashboard.Service) *mux.Router {
@@ -50,18 +18,17 @@ func Router(a authenticating.Service, p producing.Service, c consuming.Service, 
 	router.HandleFunc("/healthcheck", healthcheck()).Methods("GET", "OPTIONS")
 	router.HandleFunc("/loginVendor", loginVendor(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/createVendor", createVendor(a)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/produce", isAuthorized(produce(p))).Methods("POST", "OPTIONS")
-	router.HandleFunc("/consume", isAuthorized(consume(c))).Methods("POST", "OPTIONS")
-	router.HandleFunc("/getVendorComparisonMetadata", isAuthorized(getVendorComparisonMetadata(p))).Methods("POST", "OPTIONS")
-	router.HandleFunc("/addReencryptionKeys", isAuthorized(addReencryptionKeys(p))).Methods("POST", "OPTIONS")
-	router.HandleFunc("/listObservations", isAuthorized(listObservations(d))).Methods("GET", "OPTIONS")
-
+	router.HandleFunc("/produce", IsAuthorized(produce(p))).Methods("POST", "OPTIONS")
+	router.HandleFunc("/consume", IsAuthorized(consume(c))).Methods("POST", "OPTIONS")
+	router.HandleFunc("/getVendorComparisonMetadata", IsAuthorized(getVendorComparisonMetadata(p))).Methods("POST", "OPTIONS")
+	router.HandleFunc("/addReencryptionKeys", IsAuthorized(addReencryptionKeys(p))).Methods("POST", "OPTIONS")
+	router.HandleFunc("/listObservations", IsAuthorized(listObservations(d))).Methods("GET", "OPTIONS")
 	return router
 }
 
 func healthcheck() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode("healthy...")
+		json.NewEncoder(w).Encode("Healthy.")
 	}
 }
 

@@ -1,6 +1,6 @@
 package dynamo
 
-// Storage is the object that accesses the database
+// Storage keeps data in dynamo
 type Storage struct {
 	Vendor
 	Observation

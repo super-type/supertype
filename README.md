@@ -31,8 +31,8 @@ Therefore, we will start with a monolith. Once we have a specific service within
 - body:
 ```json
 {
-    "username": <USERNAME>,
-    "password": <PASSWORD>
+    "username": "<USERNAME>",
+    "password": "<PASSWORD>"
 }
 ```
 
@@ -40,11 +40,10 @@ Therefore, we will start with a monolith. Once we have a specific service within
 - body:
 ```json
 {
-    "username": <USERNAME>,
-    "password": <PASSWORD>,
-    "firstName": <FIRST NAME>, // Optional
-    "lastName": <LAST NAME> // Optional
-    // TODO update with more as we create more...
+    "username": "<USERNAME>",
+    "password": "<PASSWORD>",
+    "firstName": "<FIRST NAME>",
+    "lastName": "<LAST NAME>"
 }
 ```
 
@@ -54,9 +53,9 @@ Therefore, we will start with a monolith. Once we have a specific service within
 - body:
 ```json
 {
-    "ciphertext": <CIPHERTEXT>,
-    "capsule": <CAPSULE>,
-    "attribute": <ATTRIBUTE>
+    "ciphertext": "<CIPHERTEXT>",
+    "capsule": "<CAPSULE>",
+    "attribute": "<ATTRIBUTE>"
 }
 ```
 - **NOTE** the ciphertext and capsule are generated from the `goImplement` (or any future implementations) package
@@ -67,7 +66,7 @@ Therefore, we will start with a monolith. Once we have a specific service within
 - body:
 ```json
 {
-    "attribute": <ATTRIBUTE>
+    "attribute": "<ATTRIBUTE>"
 }
 ```
 
@@ -77,9 +76,9 @@ Therefore, we will start with a monolith. Once we have a specific service within
 - body:
 ```json
 {
-    "attribute": <ATTRIBUTE>,
-    "supertypeID": <SUPERTYPE ID>,
-    "pk": <VENDOR PUBLIC KEY>
+    "attribute": "<ATTRIBUTE>",
+    "supertypeID": "<SUPERTYPE ID>",
+    "pk": "<VENDOR PUBLIC KEY>"
 }
 ```
 
@@ -89,8 +88,8 @@ Therefore, we will start with a monolith. Once we have a specific service within
 - body:
 ```json
 {
-    "connections": <CONNECTIONS>,
-    "pk": <VENDOR PUBLIC KEY>
+    "connections": "<CONNECTIONS>",
+    "pk": "<VENDOR PUBLIC KEY>"
 }
 ```
 
