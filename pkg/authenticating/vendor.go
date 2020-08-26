@@ -22,6 +22,7 @@ type CreateVendor struct {
 	BusinessName   string               `json:"businessName"`
 	Username       string               `json:"username"`
 	PublicKey      string               `json:"pk"`
+	SkHash         string               `json:"skHash"`
 	SupertypeID    string               `json:"supertypeID"`
 	Connections    map[string][2]string `json:"connections"`
 	AccountBalance float32              `json:"accountBalance"`

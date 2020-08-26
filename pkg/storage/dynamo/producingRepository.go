@@ -29,7 +29,10 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 		DateAdded:   currentTime.Format("2006-01-02 15:04:05.000000000"),
 		PublicKey:   o.PublicKey,
 		SupertypeID: o.SupertypeID,
+		// TODO we want to get the skHash here...
 	}
+
+	// TODO before uploading to DynamoDB, we want to validate given skHash with internal skHash
 
 	// Upload new observation to DynamoDB
 	av, err := dynamodbattribute.MarshalMap(d.Observation)
@@ -53,7 +56,6 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 }
 
 // GetVendorComparisonMetadata returns lists of both all vendors, and all of the requesting vendors' connections
-// TODO once we implement a system to replicate DynamoDB data in Elasticsearch, we should use Elasticsearch
 func (d *Storage) GetVendorComparisonMetadata(o producing.ObservationRequest) (*producing.MetadataResponse, error) {
 	// Initialize AWS session
 	svc := SetupAWSSession()

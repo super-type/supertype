@@ -3,16 +3,23 @@ package dynamo
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/big"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/fatih/color"
+	"github.com/joho/godotenv"
 	"github.com/super-type/supertype/internal/keys"
 	"github.com/super-type/supertype/internal/utils"
 	"github.com/super-type/supertype/pkg/authenticating"
@@ -20,6 +27,28 @@ import (
 )
 
 var tableName = "vendor"
+
+// generateJWT generates a JWT on user authentication
+func generateJWT(username string) (*string, error) {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	signingKey := os.Getenv("JWT_SIGNING_KEY")
+
+	token := jwt.New(jwt.SigningMethodHS256)
+	claims := token.Claims.(jwt.MapClaims)
+	claims["authorized"] = true
+	claims["user"] = username
+	claims["exp"] = time.Now().Add(time.Minute * 30).Unix()
+
+	tokenStr, err := token.SignedString([]byte(signingKey))
+	if err != nil {
+		return nil, err
+	}
+
+	return &tokenStr, nil
+}
 
 // generateSupertypeID generates a new Supertype ID for a given password
 func generateSupertypeID(password string) (*string, error) {
@@ -52,7 +81,6 @@ func generateSupertypeID(password string) (*string, error) {
 }
 
 // establishInitialConnections creates re-encryption keys between a newly-created vendor and all existing vendors
-// TODO we will allow more granular access controls on vendor creation as we continue
 func establishInitialConnections(svc *dynamodb.DynamoDB, pkVendor *string) (*dynamodb.ScanOutput, error) {
 	// Get all vendors' pks, except the vendor's own
 	input := &dynamodb.ScanInput{
@@ -87,12 +115,7 @@ func reKeyGen(aPriKey *ecdsa.PrivateKey, bPubKey *ecdsa.PublicKey) (*big.Int, *e
 	}
 	// get d = H3(X_A || pk_B || pk_B^{x_A})
 	point := keys.PointScalarMul(bPubKey, priX.D)
-	d := utils.HashToCurve(
-		utils.ConcatBytes(
-			utils.ConcatBytes(
-				keys.PointToBytes(pubX),
-				keys.PointToBytes(bPubKey)),
-			keys.PointToBytes(point)))
+	d := utils.HashToCurve(utils.ConcatBytes(utils.ConcatBytes(keys.PointToBytes(pubX), keys.PointToBytes(bPubKey)), keys.PointToBytes(point)))
 	// rk = sk_A * d^{-1}
 	rk := utils.BigIntMul(aPriKey.D, utils.GetInvert(d))
 	rk.Mod(rk, keys.N)
@@ -113,7 +136,7 @@ func createReencryptionKeys(pkList *dynamodb.ScanOutput, skVendor *ecdsa.Private
 		// Create re-encryption keys between each pairing
 		rekey, pkX, err := reKeyGen(skVendor, &pkTemp)
 		if err != nil {
-			fmt.Printf("Error generating re-encryption key: %v\n", err) // TODO better error
+			fmt.Printf("Error generating re-encryption key: %v\n", err)
 		}
 
 		rekeyStr := rekey.String()
@@ -154,6 +177,11 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 		return nil, keys.ErrFailedToGenerateKeys
 	}
 
+	// Generate hash of secret key to be used as a signing measure for producing/consuming data
+	h := sha256.New()
+	h.Write([]byte(utils.PrivateKeyToString(skVendor)))
+	skHash := hex.EncodeToString(h.Sum(nil))
+
 	// Generate Supertype ID
 	supertypeID, err := generateSupertypeID(v.Password)
 	if err != nil {
@@ -181,6 +209,7 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 		BusinessName:   v.BusinessName,
 		Username:       v.Username,
 		PublicKey:      utils.PublicKeyToString(pkVendor),
+		SkHash:         skHash,
 		SupertypeID:    *supertypeID,
 		Connections:    rekeys,
 		AccountBalance: 0.0,
@@ -204,9 +233,6 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 		return nil, storage.ErrFailedToWriteDB
 	}
 
-	// TODO change this back in case we need it. Maybe storing the D value is fine?
-	// keyPair := [2]string{utils.PublicKeyToString(pkVendor), utils.PrivateKeyToString(skVendor)}
-	// todo research if this is safe enough to have user "store" as their secret key... stored offline of course
 	keyPair := [2]string{utils.PublicKeyToString(pkVendor), skVendor.D.String()}
 
 	return &keyPair, nil
@@ -258,7 +284,7 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.Authenti
 		return nil, authenticating.ErrRequestingAPI
 	}
 
-	jwt, err := authenticating.GenerateJWT(vendor.Username)
+	jwt, err := generateJWT(vendor.Username)
 	if err != nil {
 		color.Red("Could not generate JWT")
 		return nil, authenticating.ErrRequestingAPI
