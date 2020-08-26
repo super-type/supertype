@@ -38,6 +38,8 @@ func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.Observat
 		return nil, err
 	}
 
+	// TODO check that c.skHash matches internal skHash
+
 	// Get observations from result
 	observations := make([]consuming.ObservationResponse, 0)
 	for _, observation := range result.Items {

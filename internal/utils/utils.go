@@ -53,7 +53,7 @@ func PublicKeyToString(publicKey *ecdsa.PublicKey) string {
 func StringToPublicKey(pkString *string) (ecdsa.PublicKey, error) {
 	pkTempBytes, err := hex.DecodeString(*pkString)
 	if err != nil {
-		fmt.Printf("Error decoding bytes from string: %v\n", err) // TODO return more meaningful error
+		fmt.Printf("Error decoding bytes from string: %v\n", err)
 	}
 	x, y := elliptic.Unmarshal(elliptic.P256(), pkTempBytes)
 	publicKeyFinal := ecdsa.PublicKey{

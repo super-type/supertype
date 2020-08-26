@@ -1,8 +1,6 @@
 package consuming
 
 // ObservationRequest defines an encrypted vendor observation request
-// TODO add IDs to observations
-// TODO add vendor signing to observations
 type ObservationRequest struct {
 	Attribute   string `json:"attribute"`
 	SupertypeID string `json:"supertypeID"`
@@ -10,7 +8,6 @@ type ObservationRequest struct {
 }
 
 // ObservationResponse defines an encrypted vendor observation response
-// TODO should we return the public key of the producer to the consumer? Or keep it anonymous?
 type ObservationResponse struct {
 	Ciphertext string `json:"ciphertext"`
 	// Capsule              string    `json:"capsule"`
