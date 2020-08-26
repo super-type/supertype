@@ -2,7 +2,11 @@ package dynamo
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"math/big"
 	"net/http"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -16,6 +20,110 @@ import (
 )
 
 var tableName = "vendor"
+
+// generateSupertypeID generates a new Supertype ID for a given password
+func generateSupertypeID(password string) (*string, error) {
+	requestBody, err := json.Marshal(map[string]string{
+		"password": password,
+	})
+	if err != nil {
+		color.Red("Error marshaling data")
+		return nil, storage.ErrMarshaling
+	}
+
+	resp, err := http.Post("https://z1lwetrbfe.execute-api.us-east-1.amazonaws.com/default/generate-nuid-credentials", "application/json", bytes.NewBuffer(requestBody))
+	if err != nil {
+		color.Red("Error requesting Supertype API")
+		return nil, authenticating.ErrRequestingAPI
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		color.Red("Can't read response body")
+		return nil, authenticating.ErrResponseBody
+	}
+
+	var supertypeID string
+	json.Unmarshal([]byte(string(body)), &supertypeID)
+
+	return &supertypeID, nil
+}
+
+// establishInitialConnections creates re-encryption keys between a newly-created vendor and all existing vendors
+// TODO we will allow more granular access controls on vendor creation as we continue
+func establishInitialConnections(svc *dynamodb.DynamoDB, pkVendor *string) (*dynamodb.ScanOutput, error) {
+	// Get all vendors' pks, except the vendor's own
+	input := &dynamodb.ScanInput{
+		ExpressionAttributeNames: map[string]*string{
+			"#pk": aws.String("pk"),
+		},
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":pk": {
+				S: aws.String(*pkVendor),
+			},
+		},
+		FilterExpression:     aws.String("pk <> :pk"),
+		ProjectionExpression: aws.String("#pk"),
+		TableName:            aws.String("vendor"),
+	}
+
+	result, err := svc.Scan(input)
+	if err != nil {
+		fmt.Printf("Err scanning vendor table: %v\n", err)
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// rk = sk_A * d^{-1}
+func reKeyGen(aPriKey *ecdsa.PrivateKey, bPubKey *ecdsa.PublicKey) (*big.Int, *ecdsa.PublicKey, error) {
+	// generate x,X key-pair
+	priX, pubX, err := keys.GenerateKeys()
+	if err != nil {
+		return nil, nil, err
+	}
+	// get d = H3(X_A || pk_B || pk_B^{x_A})
+	point := keys.PointScalarMul(bPubKey, priX.D)
+	d := utils.HashToCurve(
+		utils.ConcatBytes(
+			utils.ConcatBytes(
+				keys.PointToBytes(pubX),
+				keys.PointToBytes(bPubKey)),
+			keys.PointToBytes(point)))
+	// rk = sk_A * d^{-1}
+	rk := utils.BigIntMul(aPriKey.D, utils.GetInvert(d))
+	rk.Mod(rk, keys.N)
+	return rk, pubX, nil
+}
+
+// createReencryptionKeys creates re-encryption keys for public keys returned from DynamoDB
+func createReencryptionKeys(pkList *dynamodb.ScanOutput, skVendor *ecdsa.PrivateKey) (map[string][2]string, error) {
+	connections := make(map[string][2]string)
+
+	for i := 0; i < len(pkList.Items); i++ {
+		pkTempStr := *(pkList.Items[i]["pk"].S)
+		pkTemp, err := utils.StringToPublicKey(&pkTempStr)
+		if err != nil {
+			fmt.Printf("Error converting public key string to ECDSA Public Key: %v\n", err)
+		}
+
+		// Create re-encryption keys between each pairing
+		rekey, pkX, err := reKeyGen(skVendor, &pkTemp)
+		if err != nil {
+			fmt.Printf("Error generating re-encryption key: %v\n", err) // TODO better error
+		}
+
+		rekeyStr := rekey.String()
+		pkXStr := utils.PublicKeyToString(pkX)
+
+		connections[pkTempStr] = [2]string{rekeyStr, pkXStr}
+	}
+
+	return connections, nil
+}
 
 // CreateVendor creates a new vendor and adds it to DynamoDB
 func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
@@ -47,19 +155,19 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	}
 
 	// Generate Supertype ID
-	supertypeID, err := GenerateSupertypeID(v.Password)
+	supertypeID, err := generateSupertypeID(v.Password)
 	if err != nil {
 		return nil, err
 	}
 
 	// Generate re-encryption keys
 	pk := utils.PublicKeyToString(pkVendor)
-	pkList, err := EstablishInitialConnections(svc, &pk)
+	pkList, err := establishInitialConnections(svc, &pk)
 	if err != nil {
 		color.Red("Failed to get list of public keys")
 		return nil, storage.ErrGetListPublicKeys
 	}
-	rekeys, err := CreateReencryptionKeys(pkList, skVendor)
+	rekeys, err := createReencryptionKeys(pkList, skVendor)
 	if err != nil {
 		color.Red("Failed to generate re-encryption keys")
 		return nil, keys.ErrFailedToGenerateReencryptionKeys
