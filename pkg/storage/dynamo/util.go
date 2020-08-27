@@ -1,6 +1,8 @@
 package dynamo
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -36,4 +38,32 @@ func GetFromDynamoDB(svc *dynamodb.DynamoDB, tableName string, attribute string,
 	}
 
 	return result, nil
+}
+
+// GetSkHash gets the secret key hash of the given vendor
+func GetSkHash(pk string) (*string, error) {
+	svc := SetupAWSSession()
+
+	// Get the skHash of the given vendor
+	skHashInput := &dynamodb.ScanInput{
+		ExpressionAttributeNames: map[string]*string{
+			"#skHash": aws.String("skHash"),
+		},
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":pk": {
+				S: aws.String(pk),
+			},
+		},
+		FilterExpression:     aws.String("pk = :pk"),
+		ProjectionExpression: aws.String("#skHash"),
+		TableName:            aws.String("vendor"),
+	}
+
+	skHash, err := svc.Scan(skHashInput)
+	if err != nil {
+		fmt.Printf("somethign aint right: %v", err)
+		return nil, err
+	}
+
+	return skHash.Items[0]["skHash"].S, nil
 }

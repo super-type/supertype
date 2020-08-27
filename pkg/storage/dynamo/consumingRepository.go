@@ -3,11 +3,20 @@ package dynamo
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/fatih/color"
 	"github.com/super-type/supertype/pkg/consuming"
+	"github.com/super-type/supertype/pkg/storage"
 )
 
 // Consume returns all observations at the requested attribute for the specified Supertype entity
 func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.ObservationResponse, error) {
+	skHash, err := GetSkHash(c.PublicKey)
+	// Compare requesting skHash with our internal skHash. If they don't match, it's not coming from the vendor
+	if *skHash != c.SkHash {
+		color.Red("!!! Vendor secret key hashes do no match - potential malicious attempt !!!")
+		return nil, storage.ErrSkHashDoesNotMatch
+	}
+
 	// Initialize AWS session
 	svc := SetupAWSSession()
 
@@ -37,8 +46,6 @@ func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.Observat
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO check that c.skHash matches internal skHash
 
 	// Get observations from result
 	observations := make([]consuming.ObservationResponse, 0)

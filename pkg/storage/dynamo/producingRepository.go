@@ -13,6 +13,15 @@ import (
 
 // Produce produces encyrpted data to Supertype
 func (d *Storage) Produce(o producing.ObservationRequest) error {
+	// Get the skHash of the given vendor
+	skHash, err := GetSkHash(o.PublicKey)
+
+	// Compare requesting skHash with our internal skHash. If they don't match, it's not coming from the vendor
+	if *skHash != o.SkHash {
+		color.Red("!!! Vendor secret key hashes do no match - potential malicious attempt !!!")
+		return storage.ErrSkHashDoesNotMatch
+	}
+
 	// Initialize AWS session
 	svc := SetupAWSSession()
 
@@ -29,10 +38,7 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 		DateAdded:   currentTime.Format("2006-01-02 15:04:05.000000000"),
 		PublicKey:   o.PublicKey,
 		SupertypeID: o.SupertypeID,
-		// TODO we want to get the skHash here...
 	}
-
-	// TODO before uploading to DynamoDB, we want to validate given skHash with internal skHash
 
 	// Upload new observation to DynamoDB
 	av, err := dynamodbattribute.MarshalMap(d.Observation)

@@ -22,3 +22,6 @@ var ErrGetListPublicKeys = errors.New("Error getting list of public keys")
 
 // ErrNoObservationsForEntity is used when a vendor requests an observation for an entity who has no observations
 var ErrNoObservationsForEntity = errors.New("No observations found for entity")
+
+// ErrSkHashDoesNotMatch is used when secret keys do not match, which may flag a potential malicious attempt...
+var ErrSkHashDoesNotMatch = errors.New("Secret keys do not match... Potential malicious event")
