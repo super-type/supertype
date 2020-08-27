@@ -5,6 +5,7 @@ type ObservationRequest struct {
 	Attribute   string `json:"attribute"`
 	SupertypeID string `json:"supertypeID"`
 	PublicKey   string `json:"pk"`
+	SkHash      string `json:"skHash"`
 }
 
 // ObservationResponse defines an encrypted vendor observation response
