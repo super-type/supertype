@@ -26,8 +26,6 @@ import (
 	"github.com/super-type/supertype/pkg/storage"
 )
 
-var tableName = "vendor"
-
 // generateJWT generates a JWT on user authentication
 func generateJWT(username string) (*string, error) {
 	err := godotenv.Load()
@@ -154,7 +152,7 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	svc := SetupAWSSession()
 
 	// Get username from DynamoDB
-	result, err := GetFromDynamoDB(svc, tableName, "username", v.Username)
+	result, err := GetFromDynamoDB(svc, "vendor", "username", v.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +222,7 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 
 	input := &dynamodb.PutItemInput{
 		Item:      av,
-		TableName: aws.String(tableName),
+		TableName: aws.String("vendor"),
 	}
 
 	_, err = svc.PutItem(input)
@@ -238,13 +236,70 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	return &keyPair, nil
 }
 
+// CreateUser creates a new user and adds it to DynamoDB
+func (d *Storage) CreateUser(u authenticating.UserPassword) (*string, error) {
+	// Initialize AWS session
+	svc := SetupAWSSession()
+
+	// Get username from DynamoDB
+	result, err := GetFromDynamoDB(svc, "user", "username", u.Username)
+	if err != nil {
+		return nil, err
+	}
+	user := User{}
+	err = dynamodbattribute.UnmarshalMap(result.Item, &user)
+	if err != nil {
+		return nil, storage.ErrUnmarshaling
+	}
+
+	// Check username doesn't exist
+	if user.Username != "" {
+		color.Red("User already exists")
+		return nil, authenticating.ErrUserAlreadyExists
+	}
+
+	// Generate Supertype ID
+	supertypeID, err := generateSupertypeID(u.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a final user with which to upload
+	createUser := authenticating.User{
+		Username:    u.Username,
+		SupertypeID: *supertypeID,
+	}
+
+	// Upload new user to DynamoDB
+	av, err := dynamodbattribute.MarshalMap(createUser)
+	if err != nil {
+		color.Red("Error marshaling data")
+		return nil, storage.ErrMarshaling
+	}
+
+	input := &dynamodb.PutItemInput{
+		Item:      av,
+		TableName: aws.String("user"),
+	}
+
+	_, err = svc.PutItem(input)
+	if err != nil {
+		color.Red("Failed to write to database")
+		return nil, storage.ErrFailedToWriteDB
+	}
+
+	success := "success"
+
+	return &success, nil
+}
+
 // LoginVendor logs in the given vendor to the repository
 func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.AuthenticatedVendor, error) {
 	// Initialize AWS Session
 	svc := SetupAWSSession()
 
 	// Get username from DynamoDB
-	result, err := GetFromDynamoDB(svc, tableName, "username", v.Username)
+	result, err := GetFromDynamoDB(svc, "vendor", "username", v.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -292,4 +347,53 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.Authenti
 	vendor.JWT = *jwt
 
 	return &vendor, nil
+}
+
+// LoginUser logs in the given user to the repository
+func (d *Storage) LoginUser(u authenticating.UserPassword) (*authenticating.User, error) {
+	// Initialize AWS Session
+	svc := SetupAWSSession()
+
+	// Get username from DynamoDB
+	result, err := GetFromDynamoDB(svc, "user", "username", u.Username)
+	if err != nil {
+		return nil, err
+	}
+	user := authenticating.User{}
+	err = dynamodbattribute.UnmarshalMap(result.Item, &user)
+	if err != nil {
+		color.Red("Error unmarshaling data")
+		return nil, storage.ErrUnmarshaling
+	}
+
+	// Check user exists and get object
+	if user.Username == "" {
+		color.Red("User not found")
+		return nil, authenticating.ErrUserNotFound
+	}
+
+	// Authenticate with NuID
+	requestBody, err := json.Marshal(map[string]string{
+		"password":    u.Password,
+		"supertypeID": user.SupertypeID,
+	})
+	if err != nil {
+		color.Red("Error encoding data")
+		return nil, storage.ErrEncoding
+	}
+
+	resp, err := http.Post("https://z1lwetrbfe.execute-api.us-east-1.amazonaws.com/default/login-vendor", "application/json", bytes.NewBuffer(requestBody))
+	if err != nil {
+		color.Red("Error requesting Supertype API")
+		return nil, authenticating.ErrRequestingAPI
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		color.Red("API request gave bad response status")
+		return nil, authenticating.ErrRequestingAPI
+	}
+
+	return &user, nil
 }

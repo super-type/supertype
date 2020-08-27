@@ -13,3 +13,9 @@ type Vendor struct {
 	Connections    map[string][2]string `json:"connections"`
 	AccountBalance float32              `json:"accountBalance"`
 }
+
+// User defines a Supertype user
+type User struct {
+	Username    string `json:"username"`
+	SupertypeID string `json:"supertypeID"`
+}

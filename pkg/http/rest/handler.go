@@ -18,6 +18,8 @@ func Router(a authenticating.Service, p producing.Service, c consuming.Service, 
 	router.HandleFunc("/healthcheck", healthcheck()).Methods("GET", "OPTIONS")
 	router.HandleFunc("/loginVendor", loginVendor(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/createVendor", createVendor(a)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/loginUser", loginUser(a)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/createUser", createUser(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/produce", produce(p)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/consume", consume(c)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/getVendorComparisonMetadata", IsAuthorized(getVendorComparisonMetadata(p))).Methods("POST", "OPTIONS")
@@ -118,6 +120,73 @@ func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(result)
+	}
+}
+
+func loginUser(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// TODO disable this block when publishing, this is used to enable CORS for local testing
+		(w).Header().Set("Access-Control-Allow-Origin", "*")
+		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+
+		var user authenticating.UserPassword
+		err := decoder.Decode(&user)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if &user == nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+
+		result, err := a.LoginUser(user)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
+	}
+}
+
+func createUser(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// TODO disable this block when publishing, this is used to enable CORS for local testing
+		(w).Header().Set("Access-Control-Allow-Origin", "*")
+		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+			return
+		}
+		decoder := json.NewDecoder(r.Body)
+
+		var user authenticating.UserPassword
+		err := decoder.Decode(&user)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if &user == nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+
+		success, err := a.CreateUser(user)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(success)
 	}
 }
 
