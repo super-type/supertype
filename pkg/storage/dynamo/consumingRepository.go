@@ -11,6 +11,9 @@ import (
 // Consume returns all observations at the requested attribute for the specified Supertype entity
 func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.ObservationResponse, error) {
 	skHash, err := GetSkHash(c.PublicKey)
+	if err != nil {
+		return nil, err
+	}
 	// Compare requesting skHash with our internal skHash. If they don't match, it's not coming from the vendor
 	if *skHash != c.SkHash {
 		color.Red("!!! Vendor secret key hashes do no match - potential malicious attempt !!!")
@@ -96,4 +99,22 @@ func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.Observat
 	}
 
 	return &observations, nil
+}
+
+// ConsumeWS updates the Redis global cache with specified attributes
+func (d *Storage) ConsumeWS(c consuming.ObservationRequest) (*string, error) {
+	skHash, err := GetSkHash(c.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+	// Compare requesting skHash with our internal skHash. If they don't match, it's not coming from the vendor
+	if *skHash != c.SkHash {
+		color.Red("!!! Vendor secret key hashes do no match - potential malicious attempt !!!")
+		return nil, storage.ErrSkHashDoesNotMatch
+	}
+
+	// Initialize AWS session
+	// svc := SetupAWSSession()
+
+	return nil, nil
 }

@@ -2,9 +2,11 @@ package rest
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/super-type/supertype/pkg/authenticating"
 	"github.com/super-type/supertype/pkg/consuming"
 	"github.com/super-type/supertype/pkg/dashboard"
@@ -22,6 +24,7 @@ func Router(a authenticating.Service, p producing.Service, c consuming.Service, 
 	router.HandleFunc("/createUser", createUser(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/produce", produce(p)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/consume", consume(c)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/consumeWS", consumeWS(c)).Methods("GET", "POST", "OPTIONS")
 	router.HandleFunc("/getVendorComparisonMetadata", IsAuthorized(getVendorComparisonMetadata(p))).Methods("POST", "OPTIONS")
 	router.HandleFunc("/addReencryptionKeys", IsAuthorized(addReencryptionKeys(p))).Methods("POST", "OPTIONS")
 	router.HandleFunc("/listObservations", IsAuthorized(listObservations(d))).Methods("GET", "OPTIONS")
@@ -34,22 +37,30 @@ func healthcheck() func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// TODO disable this block when publishing or update headers at least, this is used to enable CORS for local testing
+func localHeaders(w http.ResponseWriter, r *http.Request) (*json.Decoder, error) {
+	(w).Header().Set("Access-Control-Allow-Origin", "*")
+	(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+		return nil, errors.New("OPTIONS")
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	return decoder, nil
+}
+
 // loginVendor returns a handler for POST /loginVendor requests
 func loginVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO disable this block when publishing, this is used to enable CORS for local testing
-		(w).Header().Set("Access-Control-Allow-Origin", "*")
-		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+		decoder, err := localHeaders(w, r)
+		if err != nil {
 			return
 		}
 
-		decoder := json.NewDecoder(r.Body)
-
 		// ? should should this be authenticating, or storage?
 		var vendor authenticating.Vendor
-		err := decoder.Decode(&vendor)
+		err = decoder.Decode(&vendor)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -72,18 +83,14 @@ func loginVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.R
 
 func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO disable this block when publishing, this is used to enable CORS for local testing
-		(w).Header().Set("Access-Control-Allow-Origin", "*")
-		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+		decoder, err := localHeaders(w, r)
+		if err != nil {
 			return
 		}
-		decoder := json.NewDecoder(r.Body)
 
 		// ? should should this be authenticating, or storage?
 		var vendor authenticating.Vendor
-		err := decoder.Decode(&vendor)
+		err = decoder.Decode(&vendor)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -125,18 +132,13 @@ func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.
 
 func loginUser(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO disable this block when publishing, this is used to enable CORS for local testing
-		(w).Header().Set("Access-Control-Allow-Origin", "*")
-		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+		decoder, err := localHeaders(w, r)
+		if err != nil {
 			return
 		}
 
-		decoder := json.NewDecoder(r.Body)
-
 		var user authenticating.UserPassword
-		err := decoder.Decode(&user)
+		err = decoder.Decode(&user)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -159,17 +161,13 @@ func loginUser(a authenticating.Service) func(w http.ResponseWriter, r *http.Req
 
 func createUser(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO disable this block when publishing, this is used to enable CORS for local testing
-		(w).Header().Set("Access-Control-Allow-Origin", "*")
-		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+		decoder, err := localHeaders(w, r)
+		if err != nil {
 			return
 		}
-		decoder := json.NewDecoder(r.Body)
 
 		var user authenticating.UserPassword
-		err := decoder.Decode(&user)
+		err = decoder.Decode(&user)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -192,18 +190,13 @@ func createUser(a authenticating.Service) func(w http.ResponseWriter, r *http.Re
 
 func produce(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO disable this block when publishing, this is used to enable CORS for local testing
-		(w).Header().Set("Access-Control-Allow-Origin", "*")
-		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+		decoder, err := localHeaders(w, r)
+		if err != nil {
 			return
 		}
 
-		decoder := json.NewDecoder(r.Body)
-
 		var observation producing.ObservationRequest
-		err := decoder.Decode(&observation)
+		err = decoder.Decode(&observation)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -225,18 +218,13 @@ func produce(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
 
 func consume(c consuming.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO disable this block when consuming, this is used to enable CORS for local testing
-		(w).Header().Set("Access-Control-Allow-Origin", "*")
-		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+		decoder, err := localHeaders(w, r)
+		if err != nil {
 			return
 		}
 
-		decoder := json.NewDecoder(r.Body)
-
 		var observation consuming.ObservationRequest
-		err := decoder.Decode(&observation)
+		err = decoder.Decode(&observation)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -257,21 +245,41 @@ func consume(c consuming.Service) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getVendorComparisonMetadata(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
+func consumeWS(c consuming.Service) func(w http.ResponseWriter, r *http.Request) {
+	var upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO re-use this code in a util library
-		// TODO disable this block when consuming, this is used to enable CORS for local testing
-		(w).Header().Set("Access-Control-Allow-Origin", "*")
-		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+		// TODO currently allows any connection no matter the source
+		upgrader.CheckOrigin = func(r *http.Request) bool {
+			return true
+		}
+
+		ws, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		decoder := json.NewDecoder(r.Body)
+		err = ws.WriteMessage(1, []byte("Subscribed"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+func getVendorComparisonMetadata(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		decoder, err := localHeaders(w, r)
+		if err != nil {
+			return
+		}
 
 		var observation producing.ObservationRequest
-		err := decoder.Decode(&observation)
+		err = decoder.Decode(&observation)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -294,18 +302,13 @@ func getVendorComparisonMetadata(p producing.Service) func(w http.ResponseWriter
 
 func addReencryptionKeys(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO disable this block when consuming, this is used to enable CORS for local testing
-		(w).Header().Set("Access-Control-Allow-Origin", "*")
-		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+		decoder, err := localHeaders(w, r)
+		if err != nil {
 			return
 		}
 
-		decoder := json.NewDecoder(r.Body)
-
 		var rekeyRequest producing.ReencryptionKeysRequest
-		err := decoder.Decode(&rekeyRequest)
+		err = decoder.Decode(&rekeyRequest)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -328,11 +331,8 @@ func addReencryptionKeys(p producing.Service) func(w http.ResponseWriter, r *htt
 
 func listObservations(d dashboard.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO disable this block when consuming, this is used to enable CORS for local testing
-		(w).Header().Set("Access-Control-Allow-Origin", "*")
-		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+		_, err := localHeaders(w, r)
+		if err != nil {
 			return
 		}
 
