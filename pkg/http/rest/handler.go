@@ -3,8 +3,6 @@ package rest
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -254,7 +252,7 @@ func consumeWS(c consuming.Service) func(w http.ResponseWriter, r *http.Request)
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO allows any connection no matter the source... should probably change this
+		// TODO currently allows any connection no matter the source
 		upgrader.CheckOrigin = func(r *http.Request) bool {
 			return true
 		}
@@ -265,34 +263,11 @@ func consumeWS(c consuming.Service) func(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		// TODO we probably won't be reading data... just writing it. Can likely remove
-		// reader(ws)
-
-		err = ws.WriteMessage(1, []byte("Successfully subscribed to... TODO")) // TODO we want the message we write to return a success message...
+		err = ws.WriteMessage(1, []byte("Subscribed"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-	}
-}
-
-func reader(conn *websocket.Conn) {
-	for {
-		// read in a message
-		messageType, p, err := conn.ReadMessage()
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		fmt.Printf("Message type: %v\n", messageType)
-		// print out that message for clarity
-		fmt.Printf("P: %v\n", string(p))
-
-		if err := conn.WriteMessage(messageType, p); err != nil {
-			log.Println(err)
-			return
-		}
-
 	}
 }
 
