@@ -4,6 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/fatih/color"
+	"github.com/super-type/supertype/internal/utils"
 	"github.com/super-type/supertype/pkg/consuming"
 	"github.com/super-type/supertype/pkg/storage"
 )
@@ -21,7 +22,7 @@ func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.Observat
 	}
 
 	// Initialize AWS session
-	svc := SetupAWSSession()
+	svc := utils.SetupAWSSession()
 
 	// Get all observations for the specified attribute with user's Supertype ID
 	input := &dynamodb.ScanInput{
@@ -95,26 +96,17 @@ func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.Observat
 			reencryptionMetadata := [2]string{*rekey, *pkX}
 			observations[i].ReencryptionMetadata = reencryptionMetadata
 		}
-		// TODO put something in here...
 	}
 
 	return &observations, nil
 }
 
-// ConsumeWS updates the Redis global cache with specified attributes
-func (d *Storage) ConsumeWS(c consuming.ObservationRequest) (*string, error) {
-	skHash, err := GetSkHash(c.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-	// Compare requesting skHash with our internal skHash. If they don't match, it's not coming from the vendor
-	if *skHash != c.SkHash {
-		color.Red("!!! Vendor secret key hashes do no match - potential malicious attempt !!!")
-		return nil, storage.ErrSkHashDoesNotMatch
-	}
+// Subscribe does nothing here
+func (d *Storage) Subscribe(c consuming.WSObservationRequest) error {
+	return nil
+}
 
-	// Initialize AWS session
-	// svc := SetupAWSSession()
-
+// GenerateConnectionID does nothing here
+func (d *Storage) GenerateConnectionID() (*string, error) {
 	return nil, nil
 }

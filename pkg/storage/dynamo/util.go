@@ -1,25 +1,12 @@
 package dynamo
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/fatih/color"
+	"github.com/super-type/supertype/internal/utils"
 	"github.com/super-type/supertype/pkg/storage"
 )
-
-// SetupAWSSession starts an AWS session
-func SetupAWSSession() *dynamodb.DynamoDB {
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-
-	// Create DynamoDB client
-	svc := dynamodb.New(sess)
-	return svc
-}
 
 // GetFromDynamoDB gets an item from DynamoDB
 // NOTE this should stay in utils becuase while we're currently only using it for authenticating, it may be more prevalent
@@ -42,7 +29,7 @@ func GetFromDynamoDB(svc *dynamodb.DynamoDB, tableName string, attribute string,
 
 // GetSkHash gets the secret key hash of the given vendor
 func GetSkHash(pk string) (*string, error) {
-	svc := SetupAWSSession()
+	svc := utils.SetupAWSSession()
 
 	// Get the skHash of the given vendor
 	skHashInput := &dynamodb.ScanInput{
@@ -60,10 +47,17 @@ func GetSkHash(pk string) (*string, error) {
 	}
 
 	skHash, err := svc.Scan(skHashInput)
-	if err != nil {
-		fmt.Printf("somethign aint right: %v", err)
+	if err != nil || CheckAWSScanChain(skHash) {
 		return nil, err
 	}
 
 	return skHash.Items[0]["skHash"].S, nil
+}
+
+// CheckAWSScanChain checks all items through an AWS DynamoDB scan to make sure none are nil
+func CheckAWSScanChain(so *dynamodb.ScanOutput) bool {
+	if so.Items == nil || so.Items[0]["skHash"] == nil || so.Items[0]["skHash"].S == nil {
+		return true
+	}
+	return false
 }

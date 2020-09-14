@@ -3,12 +3,15 @@ package consuming
 // Repository provides access to relevant storage
 type repository interface {
 	Consume(ObservationRequest) (*[]ObservationResponse, error)
-	ConsumeWS(ObservationRequest) (*string, error)
+	Subscribe(WSObservationRequest) error
+	GenerateConnectionID() (*string, error)
 }
 
 // Service provides consuming operations
 type Service interface {
 	Consume(ObservationRequest) (*[]ObservationResponse, error)
+	Subscribe(WSObservationRequest) error
+	GenerateConnectionID() (*string, error)
 }
 
 type service struct {
@@ -29,9 +32,18 @@ func (s *service) Consume(o ObservationRequest) (*[]ObservationResponse, error) 
 	return observation, err
 }
 
-// ConsumeWS establishes a WebSocket connection on the user-specified attributes
-func (s *service) ConsumeWS(o ObservationRequest) (*string, error) { // TODO this will probably not just be a tring, but some JSON response once connection is established
-	observation, err := s.r.ConsumeWS(o)
+// Subscribe adds specified attributes to relevant Redis lists
+func (s *service) Subscribe(o WSObservationRequest) error {
+	err := s.r.Subscribe(o)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GenerateConnectionID adds specified attributes to relevant Redis lists
+func (s *service) GenerateConnectionID() (*string, error) {
+	observation, err := s.r.GenerateConnectionID()
 	if err != nil {
 		return nil, err
 	}
