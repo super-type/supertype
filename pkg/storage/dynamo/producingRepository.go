@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/fatih/color"
+	"github.com/super-type/supertype/internal/utils"
 	"github.com/super-type/supertype/pkg/producing"
 	"github.com/super-type/supertype/pkg/storage"
 )
@@ -23,7 +24,7 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 	}
 
 	// Initialize AWS session
-	svc := SetupAWSSession()
+	svc := utils.SetupAWSSession()
 
 	// Get current time
 	currentTime := time.Now()
@@ -64,7 +65,7 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 // GetVendorComparisonMetadata returns lists of both all vendors, and all of the requesting vendors' connections
 func (d *Storage) GetVendorComparisonMetadata(o producing.ObservationRequest) (*producing.MetadataResponse, error) {
 	// Initialize AWS session
-	svc := SetupAWSSession()
+	svc := utils.SetupAWSSession()
 
 	// Get all vendor public keys
 	input := &dynamodb.ScanInput{
@@ -123,7 +124,7 @@ func (d *Storage) GetVendorComparisonMetadata(o producing.ObservationRequest) (*
 // AddReencryptionKeys adds newly-created re-encryption keys for pre-existing vendors
 func (d *Storage) AddReencryptionKeys(r producing.ReencryptionKeysRequest) error {
 	// Initialize AWS session
-	svc := SetupAWSSession()
+	svc := utils.SetupAWSSession()
 
 	// Get connections of requesting vendor and username, since as of 07/2020, DynamoDB doesn't support updates on GSIs
 	input := &dynamodb.ScanInput{

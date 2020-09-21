@@ -1,4 +1,4 @@
-package dynamo
+package redis
 
 // Observation is a DynamoDB observation
 type Observation struct {

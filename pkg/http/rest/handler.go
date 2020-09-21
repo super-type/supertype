@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -14,7 +15,7 @@ import (
 )
 
 // Router is the main router for the application
-func Router(a authenticating.Service, p producing.Service, c consuming.Service, d dashboard.Service) *mux.Router {
+func Router(a authenticating.Service, p producing.Service, chttp consuming.Service, cws consuming.Service, d dashboard.Service) *mux.Router {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/healthcheck", healthcheck()).Methods("GET", "OPTIONS")
@@ -23,8 +24,8 @@ func Router(a authenticating.Service, p producing.Service, c consuming.Service, 
 	router.HandleFunc("/loginUser", loginUser(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/createUser", createUser(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/produce", produce(p)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/consume", consume(c)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/consumeWS", consumeWS(c)).Methods("GET", "POST", "OPTIONS")
+	router.HandleFunc("/consume", consume(chttp)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/consumeWS", consumeWS(cws)).Methods("GET", "OPTIONS")
 	router.HandleFunc("/getVendorComparisonMetadata", IsAuthorized(getVendorComparisonMetadata(p))).Methods("POST", "OPTIONS")
 	router.HandleFunc("/addReencryptionKeys", IsAuthorized(addReencryptionKeys(p))).Methods("POST", "OPTIONS")
 	router.HandleFunc("/listObservations", IsAuthorized(listObservations(d))).Methods("GET", "OPTIONS")
@@ -37,12 +38,13 @@ func healthcheck() func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// TODO disable this block when publishing or update headers at least, this is used to enable CORS for local testing
+// todo disable this block when publishing or update headers at least, this is used to enable CORS for local testing
 func localHeaders(w http.ResponseWriter, r *http.Request) (*json.Decoder, error) {
 	(w).Header().Set("Access-Control-Allow-Origin", "*")
 	(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 	(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-	if (r).Method == "OPTIONS" { // todo we may still want to leave this but unsure
+	// todo we may still want to leave this but unsure
+	if (r).Method == "OPTIONS" {
 		return nil, errors.New("OPTIONS")
 	}
 
@@ -212,6 +214,12 @@ func produce(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// TODO implement functionality for to also send this data to all WS connections. We'll likely need to add some kind of ProduceWS service
+		// 	val, err := rdb.SMembers(c.Attribute + ":" + c.SupertypeID).Result()
+		// if err != nil {
+		// 	return nil, err
+		// }
+
 		json.NewEncoder(w).Encode("OK")
 	}
 }
@@ -252,7 +260,7 @@ func consumeWS(c consuming.Service) func(w http.ResponseWriter, r *http.Request)
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO currently allows any connection no matter the source
+		// todo currently allows any connection no matter the source
 		upgrader.CheckOrigin = func(r *http.Request) bool {
 			return true
 		}
@@ -263,10 +271,40 @@ func consumeWS(c consuming.Service) func(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		err = ws.WriteMessage(1, []byte("Subscribed"))
+		cid, err := c.GenerateConnectionID()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+
+		// todo should we write this as a different message type as well? Like 3 or something?
+		err = ws.WriteMessage(1, []byte(*cid))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		for {
+			// read in a message
+			messageType, p, _ := ws.ReadMessage()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			if messageType == 2 {
+				var obs consuming.WSObservationRequest
+				err := json.Unmarshal(p, &obs)
+				if err != nil {
+					return
+				}
+				err = c.Subscribe(obs)
+				if err != nil {
+					return
+				}
+				if err := ws.WriteMessage(messageType, []byte("Successfully subscribed")); err != nil {
+					return
+				}
+			}
 		}
 	}
 }

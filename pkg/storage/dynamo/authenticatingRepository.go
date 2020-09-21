@@ -73,7 +73,7 @@ func generateSupertypeID(password string) (*string, error) {
 	}
 
 	var supertypeID string
-	json.Unmarshal([]byte(string(body)), &supertypeID)
+	json.Unmarshal(body, &supertypeID)
 
 	return &supertypeID, nil
 }
@@ -121,6 +121,7 @@ func reKeyGen(aPriKey *ecdsa.PrivateKey, bPubKey *ecdsa.PublicKey) (*big.Int, *e
 }
 
 // createReencryptionKeys creates re-encryption keys for public keys returned from DynamoDB
+// todo vulnerability where if we have even one entry without a public key, this loop will throw a NPE
 func createReencryptionKeys(pkList *dynamodb.ScanOutput, skVendor *ecdsa.PrivateKey) (map[string][2]string, error) {
 	connections := make(map[string][2]string)
 
@@ -149,7 +150,7 @@ func createReencryptionKeys(pkList *dynamodb.ScanOutput, skVendor *ecdsa.Private
 // CreateVendor creates a new vendor and adds it to DynamoDB
 func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	// Initialize AWS session
-	svc := SetupAWSSession()
+	svc := utils.SetupAWSSession()
 
 	// Get username from DynamoDB
 	result, err := GetFromDynamoDB(svc, "vendor", "username", v.Username)
@@ -239,7 +240,7 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 // CreateUser creates a new user and adds it to DynamoDB
 func (d *Storage) CreateUser(u authenticating.UserPassword) (*string, error) {
 	// Initialize AWS session
-	svc := SetupAWSSession()
+	svc := utils.SetupAWSSession()
 
 	// Get username from DynamoDB
 	result, err := GetFromDynamoDB(svc, "user", "username", u.Username)
@@ -296,7 +297,7 @@ func (d *Storage) CreateUser(u authenticating.UserPassword) (*string, error) {
 // LoginVendor logs in the given vendor to the repository
 func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.AuthenticatedVendor, error) {
 	// Initialize AWS Session
-	svc := SetupAWSSession()
+	svc := utils.SetupAWSSession()
 
 	// Get username from DynamoDB
 	result, err := GetFromDynamoDB(svc, "vendor", "username", v.Username)
@@ -352,7 +353,7 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.Authenti
 // LoginUser logs in the given user to the repository
 func (d *Storage) LoginUser(u authenticating.UserPassword) (*authenticating.User, error) {
 	// Initialize AWS Session
-	svc := SetupAWSSession()
+	svc := utils.SetupAWSSession()
 
 	// Get username from DynamoDB
 	result, err := GetFromDynamoDB(svc, "user", "username", u.Username)

@@ -4,13 +4,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/fatih/color"
+	"github.com/super-type/supertype/internal/utils"
 	"github.com/super-type/supertype/pkg/dashboard"
 )
 
 // ListObservations returns all observations in the Supertype ecosystem
 func (d *Storage) ListObservations() ([]string, error) {
 	// Initialize AWS session
-	svc := SetupAWSSession()
+	svc := utils.SetupAWSSession()
 	input := &dynamodb.ListTablesInput{}
 
 	var response []string

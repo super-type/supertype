@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/super-type/supertype/internal/keys"
 )
 
@@ -63,4 +65,15 @@ func StringToPublicKey(pkString *string) (ecdsa.PublicKey, error) {
 	}
 
 	return publicKeyFinal, nil
+}
+
+// SetupAWSSession starts an AWS session
+func SetupAWSSession() *dynamodb.DynamoDB {
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+
+	// Create DynamoDB client
+	svc := dynamodb.New(sess)
+	return svc
 }
