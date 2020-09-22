@@ -100,13 +100,3 @@ func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.Observat
 
 	return &observations, nil
 }
-
-// Subscribe does nothing here
-func (d *Storage) Subscribe(c consuming.WSObservationRequest) error {
-	return nil
-}
-
-// GenerateConnectionID does nothing here
-func (d *Storage) GenerateConnectionID() (*string, error) {
-	return nil, nil
-}

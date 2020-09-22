@@ -2,20 +2,23 @@ package rest
 
 import (
 	"encoding/json"
-	"errors"
-	"log"
+	"fmt"
 	"net/http"
+	"strings"
+
+	"github.com/super-type/supertype/internal/utils"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
 	"github.com/super-type/supertype/pkg/authenticating"
+	"github.com/super-type/supertype/pkg/caching"
 	"github.com/super-type/supertype/pkg/consuming"
 	"github.com/super-type/supertype/pkg/dashboard"
+	httpUtil "github.com/super-type/supertype/pkg/http"
 	"github.com/super-type/supertype/pkg/producing"
 )
 
 // Router is the main router for the application
-func Router(a authenticating.Service, p producing.Service, chttp consuming.Service, cws consuming.Service, d dashboard.Service) *mux.Router {
+func Router(a authenticating.Service, p producing.Service, c consuming.Service, d dashboard.Service, cache caching.Service) *mux.Router {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/healthcheck", healthcheck()).Methods("GET", "OPTIONS")
@@ -23,12 +26,11 @@ func Router(a authenticating.Service, p producing.Service, chttp consuming.Servi
 	router.HandleFunc("/createVendor", createVendor(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/loginUser", loginUser(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/createUser", createUser(a)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/produce", produce(p)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/consume", consume(chttp)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/consumeWS", consumeWS(cws)).Methods("GET", "OPTIONS")
-	router.HandleFunc("/getVendorComparisonMetadata", IsAuthorized(getVendorComparisonMetadata(p))).Methods("POST", "OPTIONS")
-	router.HandleFunc("/addReencryptionKeys", IsAuthorized(addReencryptionKeys(p))).Methods("POST", "OPTIONS")
-	router.HandleFunc("/listObservations", IsAuthorized(listObservations(d))).Methods("GET", "OPTIONS")
+	router.HandleFunc("/produce", produce(p, cache)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/getVendorComparisonMetadata", httpUtil.IsAuthorized(getVendorComparisonMetadata(p))).Methods("POST", "OPTIONS")
+	router.HandleFunc("/addReencryptionKeys", httpUtil.IsAuthorized(addReencryptionKeys(p))).Methods("POST", "OPTIONS")
+	router.HandleFunc("/consume", consume(c)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/listObservations", httpUtil.IsAuthorized(listObservations(d))).Methods("GET", "OPTIONS")
 	return router
 }
 
@@ -38,24 +40,10 @@ func healthcheck() func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// todo disable this block when publishing or update headers at least, this is used to enable CORS for local testing
-func localHeaders(w http.ResponseWriter, r *http.Request) (*json.Decoder, error) {
-	(w).Header().Set("Access-Control-Allow-Origin", "*")
-	(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-	(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-	// todo we may still want to leave this but unsure
-	if (r).Method == "OPTIONS" {
-		return nil, errors.New("OPTIONS")
-	}
-
-	decoder := json.NewDecoder(r.Body)
-	return decoder, nil
-}
-
 // loginVendor returns a handler for POST /loginVendor requests
 func loginVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		decoder, err := localHeaders(w, r)
+		decoder, err := httpUtil.LocalHeaders(w, r)
 		if err != nil {
 			return
 		}
@@ -85,7 +73,7 @@ func loginVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.R
 
 func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		decoder, err := localHeaders(w, r)
+		decoder, err := httpUtil.LocalHeaders(w, r)
 		if err != nil {
 			return
 		}
@@ -134,7 +122,7 @@ func createVendor(a authenticating.Service) func(w http.ResponseWriter, r *http.
 
 func loginUser(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		decoder, err := localHeaders(w, r)
+		decoder, err := httpUtil.LocalHeaders(w, r)
 		if err != nil {
 			return
 		}
@@ -163,7 +151,7 @@ func loginUser(a authenticating.Service) func(w http.ResponseWriter, r *http.Req
 
 func createUser(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		decoder, err := localHeaders(w, r)
+		decoder, err := httpUtil.LocalHeaders(w, r)
 		if err != nil {
 			return
 		}
@@ -190,9 +178,9 @@ func createUser(a authenticating.Service) func(w http.ResponseWriter, r *http.Re
 	}
 }
 
-func produce(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
+func produce(p producing.Service, cache caching.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		decoder, err := localHeaders(w, r)
+		decoder, err := httpUtil.LocalHeaders(w, r)
 		if err != nil {
 			return
 		}
@@ -214,11 +202,50 @@ func produce(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// TODO implement functionality for to also send this data to all WS connections. We'll likely need to add some kind of ProduceWS service
-		// 	val, err := rdb.SMembers(c.Attribute + ":" + c.SupertypeID).Result()
-		// if err != nil {
-		// 	return nil, err
-		// }
+		// TODO this should probably be a separate goroutine?
+		// TODO this part should probably all be in the websocket handler...
+		obs := caching.ObservationRequest{
+			Attribute:   observation.Attribute,
+			SupertypeID: observation.SupertypeID,
+			PublicKey:   observation.PublicKey,
+			SkHash:      observation.SkHash,
+		}
+
+		// Get all connections subscribed to the given attribute
+		subscribers, err := cache.GetSubscribers(obs)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		fmt.Printf("subscribers: %v\n", subscribers)
+
+		// todo this maybe shouldn't be a string array but a map with the pk as key and object containing the metadata as the value
+		// todo this is really pivotal around encryption. If we don't have encryption, this becomes a lot faster
+		// todo if we keep encryption, we'll need to load all re-encryption info into local memory on startup
+		// todo without encryption, we can just do this all within the Produce function using the incoming data
+		var pkList []string
+
+		// Iterate through each connection
+		for _, subscriber := range *subscribers {
+			// Break pipe-delimited subscriber into string array
+			subscriberMetadata := strings.Split(subscriber, "|")
+
+			// Get the connection ID
+			// connSubscriber := subscriberMetadata[0]
+
+			// Get the public key.
+			pkSubscriber := subscriberMetadata[1]
+
+			if !utils.Contains(pkList, pkSubscriber) {
+				// Get the necessary connection metadata from DynamoDB
+			} else {
+				// Get the necessary connection metadata from pkList
+			}
+
+			// Attach that metadata to an outgoing response via WebSocket
+
+			// Send that data via WebSocket to the appropriate connection
+		}
 
 		json.NewEncoder(w).Encode("OK")
 	}
@@ -226,7 +253,7 @@ func produce(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
 
 func consume(c consuming.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		decoder, err := localHeaders(w, r)
+		decoder, err := httpUtil.LocalHeaders(w, r)
 		if err != nil {
 			return
 		}
@@ -253,94 +280,9 @@ func consume(c consuming.Service) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func consumeWS(c consuming.Service) func(w http.ResponseWriter, r *http.Request) {
-	var upgrader = websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-	}
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		// todo currently allows any connection no matter the source
-		upgrader.CheckOrigin = func(r *http.Request) bool {
-			return true
-		}
-
-		ws, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		cid, err := c.GenerateConnectionID()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// todo should we write this as a different message type as well? Like 3 or something?
-		err = ws.WriteMessage(1, []byte(*cid))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		for {
-			// read in a message
-			messageType, p, _ := ws.ReadMessage()
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			if messageType == 2 {
-				var obs consuming.WSObservationRequest
-				err := json.Unmarshal(p, &obs)
-				if err != nil {
-					return
-				}
-				err = c.Subscribe(obs)
-				if err != nil {
-					return
-				}
-				if err := ws.WriteMessage(messageType, []byte("Successfully subscribed")); err != nil {
-					return
-				}
-			}
-		}
-	}
-}
-
-func getVendorComparisonMetadata(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		decoder, err := localHeaders(w, r)
-		if err != nil {
-			return
-		}
-
-		var observation producing.ObservationRequest
-		err = decoder.Decode(&observation)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if &observation == nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
-
-		metadata, err := p.GetVendorComparisonMetadata(observation)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(metadata)
-	}
-}
-
 func addReencryptionKeys(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		decoder, err := localHeaders(w, r)
+		decoder, err := httpUtil.LocalHeaders(w, r)
 		if err != nil {
 			return
 		}
@@ -369,7 +311,7 @@ func addReencryptionKeys(p producing.Service) func(w http.ResponseWriter, r *htt
 
 func listObservations(d dashboard.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, err := localHeaders(w, r)
+		_, err := httpUtil.LocalHeaders(w, r)
 		if err != nil {
 			return
 		}
@@ -382,5 +324,34 @@ func listObservations(d dashboard.Service) func(w http.ResponseWriter, r *http.R
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(observations)
+	}
+}
+
+func getVendorComparisonMetadata(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		decoder, err := httpUtil.LocalHeaders(w, r)
+		if err != nil {
+			return
+		}
+
+		var observation producing.ObservationRequest
+		err = decoder.Decode(&observation)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if &observation == nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+
+		metadata, err := p.GetVendorComparisonMetadata(observation)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(metadata)
 	}
 }
