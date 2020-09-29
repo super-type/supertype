@@ -178,7 +178,9 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 
 	// Generate hash of secret key to be used as a signing measure for producing/consuming data
 	h := sha256.New()
-	h.Write([]byte(utils.PrivateKeyToString(skVendor)))
+	// h.Write([]byte(utils.PrivateKeyToString(skVendor)))
+	// TODO do we want to be storing this skVendor.D...? I feel like we should just hash the sk value but maybe it doesn't matter...
+	h.Write([]byte(skVendor.D.String()))
 	skHash := hex.EncodeToString(h.Sum(nil))
 
 	// Generate Supertype ID
@@ -232,6 +234,7 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 		return nil, storage.ErrFailedToWriteDB
 	}
 
+	// TODO why are we returning the skVendor.D.String() here...?
 	keyPair := [2]string{utils.PublicKeyToString(pkVendor), skVendor.D.String()}
 
 	return &keyPair, nil

@@ -77,3 +77,13 @@ func SetupAWSSession() *dynamodb.DynamoDB {
 	svc := dynamodb.New(sess)
 	return svc
 }
+
+// Contains is just a basic slice contains function, as Golang doesn't have this
+func Contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
