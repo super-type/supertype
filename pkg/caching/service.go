@@ -2,14 +2,12 @@ package caching
 
 // Repository provides access to relevant storage
 type repository interface {
-	GenerateConnectionID() (*string, error)
 	Subscribe(WSObservationRequest) error
 	GetSubscribers(ObservationRequest) (*[]string, error)
 }
 
 // Service provides consuming operations
 type Service interface {
-	GenerateConnectionID() (*string, error)
 	Subscribe(WSObservationRequest) error
 	GetSubscribers(ObservationRequest) (*[]string, error)
 }
@@ -21,15 +19,6 @@ type service struct {
 // NewService creates a consuming service with the necessary dependencies
 func NewService(r repository) Service {
 	return &service{r}
-}
-
-// GenerateConnectionID adds specified attributes to relevant Redis lists
-func (s *service) GenerateConnectionID() (*string, error) {
-	observation, err := s.r.GenerateConnectionID()
-	if err != nil {
-		return nil, err
-	}
-	return observation, err
 }
 
 // Subscribe adds specified attributes to relevant Redis lists

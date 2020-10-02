@@ -17,17 +17,18 @@ import (
 )
 
 func main() {
-	// Set up storage. Can easily add more and interchange as development continues
+	// Initialize storage
 	persistentStorage := new(dynamo.Storage)
 	cacheStorage := new(redis.Storage)
 
-	// Initialize services. Can easily add more and interchange as development continues
+	// Initialize services
 	authenticator := authenticating.NewService(persistentStorage)
 	dashboard := dashboard.NewService(persistentStorage)
 	producing := producing.NewService(persistentStorage)
 	consuming := consuming.NewService(persistentStorage)
 	cache := caching.NewService(cacheStorage)
 
+	// Initialize routers and startup server
 	httpRouter := rest.Router(authenticator, producing, consuming, dashboard, cache)
 	wsRouter := websocket.Router(cache)
 	// todo is this the best way to do this?
