@@ -2,11 +2,7 @@ package rest
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"strings"
-
-	"github.com/super-type/supertype/internal/utils"
 
 	"github.com/gorilla/mux"
 	"github.com/super-type/supertype/pkg/authenticating"
@@ -200,51 +196,6 @@ func produce(p producing.Service, cache caching.Service) func(w http.ResponseWri
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		}
-
-		// TODO this should probably be a separate goroutine?
-		// TODO this part should probably all be in the websocket handler...
-		obs := caching.ObservationRequest{
-			Attribute:   observation.Attribute,
-			SupertypeID: observation.SupertypeID,
-			PublicKey:   observation.PublicKey,
-			SkHash:      observation.SkHash,
-		}
-
-		// Get all connections subscribed to the given attribute
-		subscribers, err := cache.GetSubscribers(obs)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		fmt.Printf("subscribers: %v\n", subscribers)
-
-		// todo this maybe shouldn't be a string array but a map with the pk as key and object containing the metadata as the value
-		// todo this is really pivotal around encryption. If we don't have encryption, this becomes a lot faster
-		// todo if we keep encryption, we'll need to load all re-encryption info into local memory on startup
-		// todo without encryption, we can just do this all within the Produce function using the incoming data
-		var pkList []string
-
-		// Iterate through each connection
-		for _, subscriber := range *subscribers {
-			// Break pipe-delimited subscriber into string array
-			subscriberMetadata := strings.Split(subscriber, "|")
-
-			// Get the connection ID
-			// connSubscriber := subscriberMetadata[0]
-
-			// Get the public key.
-			pkSubscriber := subscriberMetadata[1]
-
-			if !utils.Contains(pkList, pkSubscriber) {
-				// Get the necessary connection metadata from DynamoDB
-			} else {
-				// Get the necessary connection metadata from pkList
-			}
-
-			// Attach that metadata to an outgoing response via WebSocket
-
-			// Send that data via WebSocket to the appropriate connection
 		}
 
 		json.NewEncoder(w).Encode("OK")

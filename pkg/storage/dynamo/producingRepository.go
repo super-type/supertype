@@ -3,6 +3,8 @@ package dynamo
 import (
 	"time"
 
+	"github.com/super-type/supertype/pkg/http/websocket"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -58,6 +60,11 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 		color.Red("Failed to write to database")
 		return storage.ErrFailedToWriteDB
 	}
+
+	// todo is this kind of crossing bounded contexts? I feel like we shouldn't be calling a handler from a service
+	// todo this is where we should get the right re-encyrption data and send it over if we want E2E-encrypted data
+	// Broadcast to all listening clients...
+	websocket.BroadcastForSpecificPool(o.Attribute+"|"+o.SupertypeID, "test")
 
 	return nil
 }

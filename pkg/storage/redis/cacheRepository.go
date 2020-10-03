@@ -3,7 +3,6 @@ package redis
 import (
 	"github.com/fatih/color"
 	"github.com/go-redis/redis"
-	"github.com/google/uuid"
 	"github.com/super-type/supertype/pkg/caching"
 	"github.com/super-type/supertype/pkg/storage/dynamo"
 )
@@ -21,7 +20,6 @@ func (d *Storage) Subscribe(c caching.WSObservationRequest) error {
 		return err
 	}
 
-	// Example new client
 	rdb, err := EstablishRedisConnection()
 	if err != nil {
 		return err
@@ -34,25 +32,6 @@ func (d *Storage) Subscribe(c caching.WSObservationRequest) error {
 	}
 
 	return nil
-}
-
-// GenerateConnectionID generates connection IDs for WebSocket connections
-func (d *Storage) GenerateConnectionID() (*string, error) {
-	// Example new client
-	rdb, err := EstablishRedisConnection()
-	if err != nil {
-		return nil, err
-	}
-	color.Cyan("Connected to Redis cache for GenerateConnectionId...")
-
-	cid := uuid.New().String()
-	for ok := true; ok; ok = rdb.Exists(cid).Val() > 0 {
-		// todo this always triggers once... is there a way to avoid this?
-		color.Yellow("Connection ID already exists... retrying...")
-		cid = uuid.New().String()
-	}
-
-	return &cid, nil
 }
 
 // GetSubscribers gets all subscribers of the Redis set
