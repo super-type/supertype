@@ -42,11 +42,11 @@ func Router(c caching.Service) *mux.Router {
 
 	// todo maybe we can store PoolIDs in Redis and check to see if it's been started yet - adding to it if so and starting it if not
 	color.Cyan("Starting pool...")
-	router.HandleFunc("/consumeWS", consumeWS(c)).Methods("GET", "OPTIONS")
+	router.HandleFunc("/consume", consume(c)).Methods("GET", "OPTIONS")
 	return router
 }
 
-func consumeWS(c caching.Service) func(w http.ResponseWriter, r *http.Request) {
+func consume(c caching.Service) func(w http.ResponseWriter, r *http.Request) {
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
