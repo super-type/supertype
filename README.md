@@ -64,7 +64,7 @@ Therefore, we will start with a monolith. Once we have a specific service within
 }
 ```
 
-**/consumeWS: (WebSocket):** Creates a WebSocket connection between vendor and server and subscribes the vendor to realtime updates on specified attributes
+**/consume: (WebSocket):** Creates a WebSocket connection between vendor and server and subscribes the vendor to realtime updates on specified attributes
 
 **/getVendorComparisonMetadata: (POST):** Returns collections of all vendors, as well as the currently logged-in vendor's connections, in order to determine if additional re-encryptions are necessary
 - headers:
