@@ -25,3 +25,6 @@ var ErrNoObservationsForEntity = errors.New("No observations found for entity")
 
 // ErrSkHashDoesNotMatch is used when secret keys do not match, which may flag a potential malicious attempt...
 var ErrSkHashDoesNotMatch = errors.New("Secret keys do not match... Potential malicious event")
+
+// ErrInvalidEmail is used when a user attempts to use an invalid email address
+var ErrInvalidEmail = errors.New("Invalid email")
