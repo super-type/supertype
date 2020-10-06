@@ -202,6 +202,11 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 		return nil, keys.ErrFailedToGenerateReencryptionKeys
 	}
 
+	// Cursory check for valid email address
+	if !ValidateEmail(v.Email) {
+		return nil, storage.ErrInvalidEmail
+	}
+
 	// Create a final vendor with which to upload
 	createVendor := authenticating.CreateVendor{
 		FirstName:      v.FirstName,

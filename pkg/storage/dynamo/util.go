@@ -1,6 +1,8 @@
 package dynamo
 
 import (
+	"regexp"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/fatih/color"
@@ -60,4 +62,13 @@ func CheckAWSScanChain(so *dynamodb.ScanOutput) bool {
 		return true
 	}
 	return false
+}
+
+// ValidateEmail checks to see whether a valid email was entered
+func ValidateEmail(email string) bool {
+	var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+	if len(email) < 3 && len(email) > 254 {
+		return false
+	}
+	return emailRegex.MatchString(email)
 }
