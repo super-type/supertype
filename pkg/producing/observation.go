@@ -7,4 +7,5 @@ type ObservationRequest struct {
 	PublicKey   string `json:"pk"`
 	SupertypeID string `json:"supertypeID"`
 	SkHash      string `json:"skHash"`
+	IV          string `json:"iv"`
 }

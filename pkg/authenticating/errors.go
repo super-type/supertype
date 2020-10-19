@@ -22,3 +22,9 @@ var ErrResponseBody = errors.New("Error reading response body")
 
 // ErrNotAuthorized is used when a request does not contain a valid token
 var ErrNotAuthorized = errors.New("Not Authorized")
+
+// ErrGeneratingCipherBlock is used when there's an issue generating the cipher block
+var ErrGeneratingCipherBlock = errors.New("Error generating cipher block")
+
+// ErrGeneratingIV is used when there's an issue generating the iv
+var ErrGeneratingIV = errors.New("Error generating iv")

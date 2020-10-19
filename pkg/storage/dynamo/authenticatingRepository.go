@@ -2,7 +2,11 @@ package dynamo
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -343,6 +347,26 @@ func (d *Storage) LoginUser(u authenticating.UserPassword) (*authenticating.User
 		color.Red("API request gave bad response status")
 		return nil, authenticating.ErrRequestingAPI
 	}
+
+	// Key returned on login is the SupertypeID encrypted with the correct password as the AES encryption key
+	generationKey := []byte(u.Password)
+	generationPlaintext := []byte(user.SupertypeID)
+
+	// Encrypt
+	block, err := aes.NewCipher(generationKey[0:32])
+	if err != nil {
+		return nil, authenticating.ErrGeneratingCipherBlock
+	}
+	iv := make([]byte, aes.BlockSize)
+	if _, err := rand.Read(iv); err != nil {
+		return nil, authenticating.ErrGeneratingIV
+	}
+	cfb := cipher.NewCFBEncrypter(block, iv)
+	ciphertext := make([]byte, len(generationPlaintext))
+	cfb.XORKeyStream(ciphertext, generationPlaintext)
+
+	// Set userKey value to return on login
+	user.UserKey = base64.StdEncoding.EncodeToString(ciphertext)
 
 	return &user, nil
 }
