@@ -23,7 +23,7 @@ func BroadcastForSpecificPool(poolID string, data string) {
 	pool := poolMap[poolID]
 	for client := range pool.Clients {
 		message := httpUtil.Message{
-			Type: 1,
+			Type: 2,
 			Body: data,
 		}
 
@@ -112,6 +112,5 @@ func consume(c caching.Service) func(w http.ResponseWriter, r *http.Request) {
 			pool.Register <- client
 			poolMap[observation.Attribute+"|"+observation.SupertypeID] = pool
 		}
-
 	}
 }

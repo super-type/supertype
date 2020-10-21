@@ -4,6 +4,7 @@ package authenticating
 type User struct {
 	Username    string `json:"username"`
 	SupertypeID string `json:"supertypeID"`
+	UserKey     string `json:"key"`
 }
 
 // UserPassword is a password-less struct to use when handling user in any other

@@ -32,7 +32,7 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 
 	// Create an observation to upload to DynamoDB
 	d.Observation = Observation{
-		Ciphertext:  o.Ciphertext,
+		Ciphertext:  o.Ciphertext + "|" + o.IV,
 		DateAdded:   currentTime.Format("2006-01-02 15:04:05.000000000"),
 		PublicKey:   o.PublicKey,
 		SupertypeID: o.SupertypeID,
@@ -59,7 +59,7 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 	// todo is this kind of crossing bounded contexts? I feel like we shouldn't be calling a handler from a service
 	// todo this is where we should get the right re-encyrption data and send it over if we want E2E-encrypted data
 	// Broadcast to all listening clients...
-	websocket.BroadcastForSpecificPool(o.Attribute+"|"+o.SupertypeID, o.Ciphertext)
+	websocket.BroadcastForSpecificPool(o.Attribute+"|"+o.SupertypeID, o.Ciphertext+"|"+o.IV)
 
 	return nil
 }
