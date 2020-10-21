@@ -23,8 +23,6 @@ func Router(a authenticating.Service, p producing.Service, c consuming.Service, 
 	router.HandleFunc("/loginUser", loginUser(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/createUser", createUser(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/produce", produce(p, cache)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/getVendorComparisonMetadata", httpUtil.IsAuthorized(getVendorComparisonMetadata(p))).Methods("POST", "OPTIONS")
-	router.HandleFunc("/addReencryptionKeys", httpUtil.IsAuthorized(addReencryptionKeys(p))).Methods("POST", "OPTIONS")
 	router.HandleFunc("/consume", consume(c)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/listObservations", httpUtil.IsAuthorized(listObservations(d))).Methods("GET", "OPTIONS")
 	return router
@@ -231,35 +229,6 @@ func consume(c consuming.Service) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func addReencryptionKeys(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		decoder, err := httpUtil.LocalHeaders(w, r)
-		if err != nil {
-			return
-		}
-
-		var rekeyRequest producing.ReencryptionKeysRequest
-		err = decoder.Decode(&rekeyRequest)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if &rekeyRequest == nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
-
-		err = p.AddReencryptionKeys(rekeyRequest)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode("OK")
-	}
-}
-
 func listObservations(d dashboard.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		_, err := httpUtil.LocalHeaders(w, r)
@@ -275,34 +244,5 @@ func listObservations(d dashboard.Service) func(w http.ResponseWriter, r *http.R
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(observations)
-	}
-}
-
-func getVendorComparisonMetadata(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		decoder, err := httpUtil.LocalHeaders(w, r)
-		if err != nil {
-			return
-		}
-
-		var observation producing.ObservationRequest
-		err = decoder.Decode(&observation)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if &observation == nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
-
-		metadata, err := p.GetVendorComparisonMetadata(observation)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(metadata)
 	}
 }

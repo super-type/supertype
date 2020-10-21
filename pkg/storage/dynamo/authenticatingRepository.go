@@ -2,14 +2,12 @@ package dynamo
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math/big"
 	"net/http"
 	"os"
 	"time"
@@ -104,49 +102,6 @@ func establishInitialConnections(svc *dynamodb.DynamoDB, pkVendor *string) (*dyn
 	return result, nil
 }
 
-// rk = sk_A * d^{-1}
-func reKeyGen(aPriKey *ecdsa.PrivateKey, bPubKey *ecdsa.PublicKey) (*big.Int, *ecdsa.PublicKey, error) {
-	// generate x,X key-pair
-	priX, pubX, err := keys.GenerateKeys()
-	if err != nil {
-		return nil, nil, err
-	}
-	// get d = H3(X_A || pk_B || pk_B^{x_A})
-	point := keys.PointScalarMul(bPubKey, priX.D)
-	d := utils.HashToCurve(utils.ConcatBytes(utils.ConcatBytes(keys.PointToBytes(pubX), keys.PointToBytes(bPubKey)), keys.PointToBytes(point)))
-	// rk = sk_A * d^{-1}
-	rk := utils.BigIntMul(aPriKey.D, utils.GetInvert(d))
-	rk.Mod(rk, keys.N)
-	return rk, pubX, nil
-}
-
-// createReencryptionKeys creates re-encryption keys for public keys returned from DynamoDB
-// todo vulnerability where if we have even one entry without a public key, this loop will throw a NPE
-func createReencryptionKeys(pkList *dynamodb.ScanOutput, skVendor *ecdsa.PrivateKey) (map[string][2]string, error) {
-	connections := make(map[string][2]string)
-
-	for i := 0; i < len(pkList.Items); i++ {
-		pkTempStr := *(pkList.Items[i]["pk"].S)
-		pkTemp, err := utils.StringToPublicKey(&pkTempStr)
-		if err != nil {
-			fmt.Printf("Error converting public key string to ECDSA Public Key: %v\n", err)
-		}
-
-		// Create re-encryption keys between each pairing
-		rekey, pkX, err := reKeyGen(skVendor, &pkTemp)
-		if err != nil {
-			fmt.Printf("Error generating re-encryption key: %v\n", err)
-		}
-
-		rekeyStr := rekey.String()
-		pkXStr := utils.PublicKeyToString(pkX)
-
-		connections[pkTempStr] = [2]string{rekeyStr, pkXStr}
-	}
-
-	return connections, nil
-}
-
 // CreateVendor creates a new vendor and adds it to DynamoDB
 func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	// Initialize AWS session
@@ -180,26 +135,13 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	h := sha256.New()
 	// h.Write([]byte(utils.PrivateKeyToString(skVendor)))
 	// TODO do we want to be storing this skVendor.D...? I feel like we should just hash the sk value but maybe it doesn't matter...
-	h.Write([]byte(skVendor.D.String()))
+	h.Write([]byte(*skVendor))
 	skHash := hex.EncodeToString(h.Sum(nil))
 
 	// Generate Supertype ID
 	supertypeID, err := generateSupertypeID(v.Password)
 	if err != nil {
 		return nil, err
-	}
-
-	// Generate re-encryption keys
-	pk := utils.PublicKeyToString(pkVendor)
-	pkList, err := establishInitialConnections(svc, &pk)
-	if err != nil {
-		color.Red("Failed to get list of public keys")
-		return nil, storage.ErrGetListPublicKeys
-	}
-	rekeys, err := createReencryptionKeys(pkList, skVendor)
-	if err != nil {
-		color.Red("Failed to generate re-encryption keys")
-		return nil, keys.ErrFailedToGenerateReencryptionKeys
 	}
 
 	// Cursory check for valid email address
@@ -214,10 +156,9 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 		Email:          v.Email,
 		BusinessName:   v.BusinessName,
 		Username:       v.Username,
-		PublicKey:      utils.PublicKeyToString(pkVendor),
+		PublicKey:      *pkVendor,
 		SkHash:         skHash,
 		SupertypeID:    *supertypeID,
-		Connections:    rekeys,
 		AccountBalance: 0.0,
 	}
 
@@ -239,8 +180,7 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 		return nil, storage.ErrFailedToWriteDB
 	}
 
-	// TODO why are we returning the skVendor.D.String() here...?
-	keyPair := [2]string{utils.PublicKeyToString(pkVendor), skVendor.D.String()}
+	keyPair := [2]string{*pkVendor, *skVendor}
 
 	return &keyPair, nil
 }
