@@ -48,11 +48,10 @@ Therefore, we will start with a monolith. Once we have a specific service within
 ```json
 {
     "ciphertext": "<CIPHERTEXT>",
-    "capsule": "<CAPSULE>",
     "attribute": "<ATTRIBUTE>"
 }
 ```
-- **NOTE** the ciphertext and capsule are generated from the `goImplement` (or any future implementations) package
+- **NOTE** the ciphertext is generated from the `goImplement` (or any future implementations) package
 
 **/consume: (POST):** Consumes data for a specific user from the Supertype ecosystem, regardless of which vendor produced it
 - headers:
@@ -65,29 +64,6 @@ Therefore, we will start with a monolith. Once we have a specific service within
 ```
 
 **/consume: (WebSocket):** Creates a WebSocket connection between vendor and server and subscribes the vendor to realtime updates on specified attributes
-
-**/getVendorComparisonMetadata: (POST):** Returns collections of all vendors, as well as the currently logged-in vendor's connections, in order to determine if additional re-encryptions are necessary
-- headers:
-    - `Token` : `<JWT GENERATED ON LOGIN>`
-- body:
-```json
-{
-    "attribute": "<ATTRIBUTE>",
-    "supertypeID": "<SUPERTYPE ID>",
-    "pk": "<VENDOR PUBLIC KEY>"
-}
-```
-
-**/addReencryptionKeys: (POST):** Runs re-encryption from current vendor to any newly-created vendors, if necessary
-- headers:
-    - `Token` : `<JWT GENERATED ON LOGIN>`
-- body:
-```json
-{
-    "connections": "<CONNECTIONS>",
-    "pk": "<VENDOR PUBLIC KEY>"
-}
-```
 
 ## Troubleshooting 
 
