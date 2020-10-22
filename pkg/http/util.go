@@ -76,7 +76,18 @@ func (pool *Pool) Start() {
 			fmt.Println("Size of Connection Pool: ", len(pool.Clients))
 			for client := range pool.Clients {
 				color.Cyan("New connection on " + client.ID)
-				client.Conn.WriteJSON(Message{Type: 3, Body: "New user joined " + client.ID})
+				message := Message{
+					Type: 1,
+					Body: "New connection on " + client.ID,
+				}
+				messageJSON, err := json.Marshal(message)
+				if err != nil {
+					return
+				}
+				err = client.Conn.WriteMessage(1, messageJSON)
+				if err != nil {
+					return
+				}
 			}
 			break
 
@@ -86,7 +97,18 @@ func (pool *Pool) Start() {
 			fmt.Println("Size of Connection Pool: ", len(pool.Clients))
 			for client := range pool.Clients {
 				color.Cyan("Client disconnecting from " + client.ID)
-				client.Conn.WriteJSON(Message{Type: 1, Body: "Client disconnecting from " + client.ID})
+				message := Message{
+					Type: 1,
+					Body: "Client disconnecting from " + client.ID,
+				}
+				messageJSON, err := json.Marshal(message)
+				if err != nil {
+					return
+				}
+				err = client.Conn.WriteMessage(1, messageJSON)
+				if err != nil {
+					return
+				}
 			}
 			break
 		}
