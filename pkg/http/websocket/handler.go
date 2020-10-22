@@ -71,7 +71,6 @@ func consume(c caching.Service) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// client.Read()
 		_, p, err := conn.ReadMessage()
 		if err != nil {
 			log.Printf("Err: %v\n", err)
@@ -100,6 +99,7 @@ func consume(c caching.Service) func(w http.ResponseWriter, r *http.Request) {
 			pool.Register <- client
 
 			poolMap[observation.Attribute+"|"+observation.SupertypeID] = *pool
+			client.Read()
 		} else {
 			pool := poolMap[observation.Attribute+"|"+observation.SupertypeID]
 
@@ -111,6 +111,7 @@ func consume(c caching.Service) func(w http.ResponseWriter, r *http.Request) {
 
 			pool.Register <- client
 			poolMap[observation.Attribute+"|"+observation.SupertypeID] = pool
+			client.Read()
 		}
 	}
 }
