@@ -23,11 +23,17 @@ func BroadcastForSpecificPool(poolID string, data string) {
 	pool := poolMap[poolID]
 	for client := range pool.Clients {
 		message := httpUtil.Message{
+			// todo this should be done outside of the POC too, so we know to decrypt messages of type 2 coming in!!
 			Type: 2,
 			Body: data,
 		}
 
-		err := client.Conn.WriteJSON(message)
+		messageJSON, err := json.Marshal(message)
+		if err != nil {
+			return
+		}
+
+		err = client.Conn.WriteMessage(2, messageJSON)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -64,8 +70,7 @@ func consume(c caching.Service) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// todo should we write this as a different message type as well? Like 3 or something?
-		err = conn.WriteMessage(1, []byte("Subscribed"))
+		err = conn.WriteMessage(1, []byte("Connected"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
