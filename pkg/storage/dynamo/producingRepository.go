@@ -32,7 +32,7 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 
 	// Create an observation to upload to DynamoDB
 	d.Observation = Observation{
-		Ciphertext:  o.Ciphertext + "|" + o.IV,
+		Ciphertext:  o.Ciphertext + "|" + o.IV + "|" + o.Attribute,
 		DateAdded:   currentTime.Format("2006-01-02 15:04:05.000000000"),
 		PublicKey:   o.PublicKey,
 		SupertypeID: o.SupertypeID,
