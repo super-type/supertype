@@ -30,7 +30,7 @@ func main() {
 
 	// Initialize routers and startup server
 	httpRouter := rest.Router(authenticator, producing, consuming, dashboard, cache)
-	wsRouter := websocket.Router(cache)
+	wsRouter := websocket.Router(cache, producing)
 	// todo is this the best way to do this?
 	// source: https://gist.github.com/filewalkwithme/24363472e7424bbe7028
 	go func() {
