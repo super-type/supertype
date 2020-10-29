@@ -1,57 +1,66 @@
 package redis
 
 import (
-	"github.com/fatih/color"
-	"github.com/go-redis/redis"
-	"github.com/super-type/supertype/pkg/caching"
-	"github.com/super-type/supertype/pkg/storage/dynamo"
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/gorilla/websocket"
+	httpUtil "github.com/super-type/supertype/pkg/http"
 )
 
-// Subscribe adds specified attributes to relevant Redis lists
-func (d *Storage) Subscribe(c caching.WSObservationRequest) error {
-	skHash, err := dynamo.GetSkHash(c.PublicKey)
-	if err != nil || skHash == nil {
-		return err
-	}
-
-	// Compare requesting skHash with our internal skHash. If they don't match, it's not coming from the vendor
-	if *skHash != c.SkHash {
-		color.Red("!!! Vendor secret key hashes do no match - potential malicious attempt !!!")
-		return err
-	}
-
-	rdb, err := EstablishRedisConnection()
+// Subscribe appends a new event to channel
+func (s *Storage) Subscribe(ctx context.Context, conn *websocket.Conn, channel string) {
+	consumer, err := NewClient()
 	if err != nil {
-		return err
+		return
 	}
-	color.Cyan("Connected to Redis cache for Subscribe...")
+	pubsub := consumer.client.Subscribe(channel)
+	defer pubsub.Close()
 
-	rdb.SAdd(c.Attribute+":"+c.SupertypeID, c.Cid+"|"+c.PublicKey).Err()
-	if err != nil {
-		return err
+	subChannel := pubsub.Channel()
+
+	for {
+		select {
+		case m := <-subChannel:
+			// Get correct ciphertext
+			ciphertextStart := strings.Index(m.String(), ":") + 1
+			ciphertext := m.String()[ciphertextStart : len(m.String())-1]
+			ciphertext = strings.Replace(ciphertext, " ", "", -1)
+
+			message := httpUtil.Message{
+				Type: 2,
+				Body: ciphertext,
+			}
+
+			messageJSON, err := json.Marshal(message)
+			if err != nil {
+				return
+			}
+
+			err = conn.WriteMessage(2, messageJSON)
+			if err != nil {
+				return
+			}
+		case <-time.After(5 * time.Minute):
+			fmt.Println("Consumer cancelled after 5 idle minutes")
+			consumer.client.Close()
+			return
+		case <-ctx.Done():
+			fmt.Println("Consumer cancelled by user")
+			consumer.client.Close()
+			return
+		}
 	}
-
-	return nil
 }
 
-// GetSubscribers gets all subscribers of the Redis set
-func (d *Storage) GetSubscribers(o caching.ObservationRequest) (*[]string, error) {
-	// TODO this should just be EstablishRedisConnection, but we can't access helper function yet
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-
-	pong, err := rdb.Ping().Result()
-	if err != nil && pong != "" {
-		return nil, err
-	}
-
-	val, err := rdb.SMembers(o.Attribute + ":" + o.SupertypeID).Result()
+// Publish appends a new event to channel
+func (s *Storage) Publish(ctx context.Context, channel string, messages interface{}) {
+	publisher, err := NewClient()
 	if err != nil {
-		return nil, err
+		return
 	}
-
-	return &val, nil
+	publisher.client.Publish(channel, messages)
 }
