@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -11,44 +10,22 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/super-type/supertype/pkg/caching"
 	httpUtil "github.com/super-type/supertype/pkg/http"
+	"github.com/super-type/supertype/pkg/producing"
 )
 
 // PoolMap is a map of all pools with key of the form <attribute>|<supertypeID>
 // todo move this out of memory
 var poolMap map[string]httpUtil.Pool
 
-// BroadcastForSpecificPool sends a message to all members of a specific pool
-// todo move this into util once poolMap is out of memory
-func BroadcastForSpecificPool(poolID string, data string) {
-	pool := poolMap[poolID]
-	for client := range pool.Clients {
-		message := httpUtil.Message{
-			// todo this should be done outside of the POC too, so we know to decrypt messages of type 2 coming in!!
-			Type: 2,
-			Body: data,
-		}
-
-		messageJSON, err := json.Marshal(message)
-		if err != nil {
-			return
-		}
-
-		err = client.Conn.WriteMessage(2, messageJSON)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-	}
-}
-
 // Router is the main router for the application
-func Router(c caching.Service) *mux.Router {
+func Router(c caching.Service, p producing.Service) *mux.Router {
 	router := mux.NewRouter()
 	poolMap = make(map[string]httpUtil.Pool)
 
 	// todo maybe we can store PoolIDs in Redis and check to see if it's been started yet - adding to it if so and starting it if not
 	color.Cyan("Starting pool...")
 	router.HandleFunc("/consume", consume(c)).Methods("GET", "OPTIONS")
+	router.HandleFunc("/broadcast", broadcast(p)).Methods("POST", "OPTIONS")
 	return router
 }
 
@@ -118,5 +95,36 @@ func consume(c caching.Service) func(w http.ResponseWriter, r *http.Request) {
 			poolMap[observation.Attribute+"|"+observation.SupertypeID] = pool
 			client.Read()
 		}
+	}
+}
+
+func broadcast(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		decoder, err := httpUtil.LocalHeaders(w, r)
+		if err != nil {
+			return
+		}
+
+		var observation producing.BroadcastRequest
+		err = decoder.Decode(&observation)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if &observation == nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+
+		err = p.Broadcast(observation, poolMap)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		// todo change this from "OK" to standardized resposne
+		json.NewEncoder(w).Encode("OK")
 	}
 }
