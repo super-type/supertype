@@ -1,15 +1,21 @@
 package caching
 
+import (
+	"context"
+
+	"github.com/gorilla/websocket"
+)
+
 // Repository provides access to relevant storage
 type repository interface {
-	Subscribe(WSObservationRequest) error
-	GetSubscribers(ObservationRequest) (*[]string, error)
+	Subscribe(ctx context.Context, conn *websocket.Conn, channel string)
+	Publish(ctx context.Context, channel string, messages interface{})
 }
 
 // Service provides consuming operations
 type Service interface {
-	Subscribe(WSObservationRequest) error
-	GetSubscribers(ObservationRequest) (*[]string, error)
+	Subscribe(ctx context.Context, conn *websocket.Conn, channel string)
+	Publish(ctx context.Context, channel string, messages interface{})
 }
 
 type service struct {
@@ -22,19 +28,11 @@ func NewService(r repository) Service {
 }
 
 // Subscribe adds specified attributes to relevant Redis lists
-func (s *service) Subscribe(o WSObservationRequest) error {
-	err := s.r.Subscribe(o)
-	if err != nil {
-		return err
-	}
-	return nil
+func (s *service) Subscribe(ctx context.Context, conn *websocket.Conn, channel string) {
+	s.r.Subscribe(ctx, conn, channel)
 }
 
-// GetSubscribers
-func (s *service) GetSubscribers(o ObservationRequest) (*[]string, error) {
-	subscribers, err := s.r.GetSubscribers(o)
-	if err != nil {
-		return nil, err
-	}
-	return subscribers, nil
+// Publish publishes the given message to all subscribers
+func (s *service) Publish(ctx context.Context, channel string, messages interface{}) {
+	s.r.Publish(ctx, channel, messages)
 }

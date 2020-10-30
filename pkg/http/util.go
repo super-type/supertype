@@ -3,13 +3,10 @@ package http
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"log"
 	"net/http"
 	"os"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/fatih/color"
 	"github.com/joho/godotenv"
 	"github.com/super-type/supertype/pkg/authenticating"
 )
@@ -54,87 +51,4 @@ func LocalHeaders(w http.ResponseWriter, r *http.Request) (*json.Decoder, error)
 
 	decoder := json.NewDecoder(r.Body)
 	return decoder, nil
-}
-
-// NewPool creates a new Pool
-func NewPool() *Pool {
-	return &Pool{
-		Register:   make(chan *Client),
-		Unregister: make(chan *Client),
-		Clients:    make(map[*Client]bool),
-		Broadcast:  make(chan Message),
-	}
-}
-
-// Start starts WebSocket process
-func (pool *Pool) Start() {
-	for {
-		select {
-		// Connect to Supertype
-		case client := <-pool.Register:
-			pool.Clients[client] = true
-			fmt.Println("Size of Connection Pool: ", len(pool.Clients))
-			for client := range pool.Clients {
-				color.Cyan("New connection on " + client.ID)
-				message := Message{
-					Type: 1,
-					Body: "New connection on " + client.ID,
-				}
-				messageJSON, err := json.Marshal(message)
-				if err != nil {
-					return
-				}
-				err = client.Conn.WriteMessage(1, messageJSON)
-				if err != nil {
-					return
-				}
-			}
-			break
-
-		// Disconnect from Supertype
-		case client := <-pool.Unregister:
-			delete(pool.Clients, client)
-			fmt.Println("Size of Connection Pool: ", len(pool.Clients))
-			for client := range pool.Clients {
-				color.Cyan("Client disconnecting from " + client.ID)
-				message := Message{
-					Type: 1,
-					Body: "Client disconnecting from " + client.ID,
-				}
-				messageJSON, err := json.Marshal(message)
-				if err != nil {
-					return
-				}
-				err = client.Conn.WriteMessage(1, messageJSON)
-				if err != nil {
-					return
-				}
-			}
-			break
-		}
-	}
-}
-
-// Read constantly listens for new messages coming through on this client's WS connection
-func (c *Client) Read() {
-	defer func() {
-		c.Pool.Unregister <- c
-		c.Conn.Close()
-	}()
-
-	for {
-		messageType, p, err := c.Conn.ReadMessage()
-		if err != nil {
-			log.Printf("Err: %v\n", err)
-			return
-		}
-
-		message := Message{
-			Type: messageType,
-			Body: string(p),
-		}
-		// todo we maybe want to loop through the Pool for relevant Clients here too...?
-		c.Pool.Broadcast <- message
-		fmt.Printf("Message Received: %v\n", message)
-	}
 }

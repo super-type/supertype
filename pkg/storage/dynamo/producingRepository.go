@@ -3,7 +3,6 @@ package dynamo
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -12,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/fatih/color"
 	"github.com/super-type/supertype/internal/utils"
-	httpUtil "github.com/super-type/supertype/pkg/http"
 	"github.com/super-type/supertype/pkg/producing"
 	"github.com/super-type/supertype/pkg/storage"
 )
@@ -61,14 +59,13 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 	}
 
 	// Broadcast to all listening clients...
-	requestBody, err := json.Marshal(producing.BroadcastRequest{
+	requestBody, err := json.Marshal(producing.ObservationRequest{
 		Attribute:   o.Attribute,
 		Ciphertext:  o.Ciphertext + "|" + o.IV + "|" + o.Attribute,
 		PublicKey:   o.PublicKey,
 		SupertypeID: o.SupertypeID,
 		SkHash:      o.SkHash,
 		IV:          o.IV,
-		PoolID:      o.Attribute + "|" + o.SupertypeID,
 	})
 	if err != nil {
 		return storage.ErrMarshaling
@@ -78,28 +75,5 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 		log.Printf("error posting: %v\n", err)
 	}
 
-	return nil
-}
-
-// Broadcast sends a message to all members of a specific pool
-func (d *Storage) Broadcast(b producing.BroadcastRequest, poolMap map[string]httpUtil.Pool) error {
-	pool := poolMap[b.PoolID]
-	for client := range pool.Clients {
-		message := httpUtil.Message{
-			Type: 2,
-			Body: b.Ciphertext,
-		}
-
-		messageJSON, err := json.Marshal(message)
-		if err != nil {
-			return err
-		}
-
-		err = client.Conn.WriteMessage(2, messageJSON)
-		if err != nil {
-			fmt.Println(err)
-			return err
-		}
-	}
 	return nil
 }
