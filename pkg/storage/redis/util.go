@@ -1,8 +1,11 @@
 package redis
 
 import (
+	"encoding/json"
+
 	"github.com/fatih/color"
 	"github.com/go-redis/redis"
+	httpUtil "github.com/super-type/supertype/pkg/http"
 )
 
 // EstablishCacheConnection establishes a basic Redis connection
@@ -34,4 +37,18 @@ func NewClient() (*Client, error) {
 	}
 
 	return client, nil
+}
+
+// CreateMessage formats a message to be sent back to listening subscription
+func CreateMessage(message string) (*[]byte, error) {
+	result := httpUtil.Message{
+		Type: 2,
+		Body: message,
+	}
+
+	messageJSON, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+	return &messageJSON, nil
 }

@@ -9,102 +9,17 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"log"
 	"net/http"
-	"os"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/dgrijalva/jwt-go"
 	"github.com/fatih/color"
-	"github.com/joho/godotenv"
 	"github.com/super-type/supertype/internal/keys"
 	"github.com/super-type/supertype/internal/utils"
 	"github.com/super-type/supertype/pkg/authenticating"
 	"github.com/super-type/supertype/pkg/storage"
 )
-
-// generateJWT generates a JWT on user authentication
-func generateJWT(username string) (*string, error) {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-	signingKey := os.Getenv("JWT_SIGNING_KEY")
-
-	token := jwt.New(jwt.SigningMethodHS256)
-	claims := token.Claims.(jwt.MapClaims)
-	claims["authorized"] = true
-	claims["user"] = username
-	claims["exp"] = time.Now().Add(time.Minute * 30).Unix()
-
-	tokenStr, err := token.SignedString([]byte(signingKey))
-	if err != nil {
-		return nil, err
-	}
-
-	return &tokenStr, nil
-}
-
-// generateSupertypeID generates a new Supertype ID for a given password
-func generateSupertypeID(password string) (*string, error) {
-	requestBody, err := json.Marshal(map[string]string{
-		"password": password,
-	})
-	if err != nil {
-		color.Red("Error marshaling data")
-		return nil, storage.ErrMarshaling
-	}
-
-	resp, err := http.Post("https://z1lwetrbfe.execute-api.us-east-1.amazonaws.com/default/generate-nuid-credentials", "application/json", bytes.NewBuffer(requestBody))
-	if err != nil {
-		color.Red("Error requesting Supertype API")
-		return nil, authenticating.ErrRequestingAPI
-	}
-
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		color.Red("Can't read response body")
-		return nil, authenticating.ErrResponseBody
-	}
-
-	var supertypeID string
-	json.Unmarshal(body, &supertypeID)
-
-	return &supertypeID, nil
-}
-
-// establishInitialConnections creates re-encryption keys between a newly-created vendor and all existing vendors
-func establishInitialConnections(svc *dynamodb.DynamoDB, pkVendor *string) (*dynamodb.ScanOutput, error) {
-	// Get all vendors' pks, except the vendor's own
-	input := &dynamodb.ScanInput{
-		ExpressionAttributeNames: map[string]*string{
-			"#pk": aws.String("pk"),
-		},
-		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
-			":pk": {
-				S: aws.String(*pkVendor),
-			},
-		},
-		FilterExpression:     aws.String("pk <> :pk"),
-		ProjectionExpression: aws.String("#pk"),
-		TableName:            aws.String("vendor"),
-	}
-
-	result, err := svc.Scan(input)
-	if err != nil {
-		fmt.Printf("Err scanning vendor table: %v\n", err)
-		return nil, err
-	}
-
-	return result, nil
-}
 
 // CreateVendor creates a new vendor and adds it to DynamoDB
 func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
@@ -138,18 +53,17 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	// Generate hash of secret key to be used as a signing measure for producing/consuming data
 	h := sha256.New()
 	// h.Write([]byte(utils.PrivateKeyToString(skVendor)))
-	// TODO do we want to be storing this skVendor.D...? I feel like we should just hash the sk value but maybe it doesn't matter...
 	h.Write([]byte(*skVendor))
 	skHash := hex.EncodeToString(h.Sum(nil))
 
 	// Generate Supertype ID
-	supertypeID, err := generateSupertypeID(v.Password)
+	supertypeID, err := utils.GenerateSupertypeID(v.Password)
 	if err != nil {
 		return nil, err
 	}
 
 	// Cursory check for valid email address
-	if !ValidateEmail(v.Email) {
+	if !utils.ValidateEmail(v.Email) {
 		return nil, storage.ErrInvalidEmail
 	}
 
@@ -212,7 +126,7 @@ func (d *Storage) CreateUser(u authenticating.UserPassword) (*string, error) {
 	}
 
 	// Generate Supertype ID
-	supertypeID, err := generateSupertypeID(u.Password)
+	supertypeID, err := utils.GenerateSupertypeID(u.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +206,7 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.Authenti
 		return nil, authenticating.ErrRequestingAPI
 	}
 
-	jwt, err := generateJWT(vendor.Username)
+	jwt, err := utils.GenerateJWT(vendor.Username)
 	if err != nil {
 		color.Red("Could not generate JWT")
 		return nil, authenticating.ErrRequestingAPI

@@ -10,7 +10,6 @@ import (
 )
 
 // GenerateKeys returns a new key pair on the elliptic curve
-// TODO we should attempt to encode and decode this effectively
 // source: https://stackoverflow.com/questions/21322182/how-to-store-ecdsa-private-key-in-go
 func GenerateKeys() (*string, *string, error) {
 	sk, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
