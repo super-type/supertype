@@ -1,8 +1,22 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/json"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+	"regexp"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/fatih/color"
+	"github.com/joho/godotenv"
+	"github.com/super-type/supertype/pkg/authenticating"
+	"github.com/super-type/supertype/pkg/storage"
 )
 
 // SetupAWSSession starts an AWS session
@@ -24,4 +38,92 @@ func Contains(s []string, e string) bool {
 		}
 	}
 	return false
+}
+
+// GenerateJWT generates a JWT on user authentication
+func GenerateJWT(username string) (*string, error) {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	signingKey := os.Getenv("JWT_SIGNING_KEY")
+
+	token := jwt.New(jwt.SigningMethodHS256)
+	claims := token.Claims.(jwt.MapClaims)
+	claims["authorized"] = true
+	claims["user"] = username
+	claims["exp"] = time.Now().Add(time.Minute * 30).Unix()
+
+	tokenStr, err := token.SignedString([]byte(signingKey))
+	if err != nil {
+		return nil, err
+	}
+
+	return &tokenStr, nil
+}
+
+// GenerateSupertypeID generates a new Supertype ID for a given password
+func GenerateSupertypeID(password string) (*string, error) {
+	requestBody, err := json.Marshal(map[string]string{
+		"password": password,
+	})
+	if err != nil {
+		color.Red("Error marshaling data")
+		return nil, storage.ErrMarshaling
+	}
+
+	resp, err := http.Post("https://z1lwetrbfe.execute-api.us-east-1.amazonaws.com/default/generate-nuid-credentials", "application/json", bytes.NewBuffer(requestBody))
+	if err != nil {
+		color.Red("Error requesting Supertype API")
+		return nil, authenticating.ErrRequestingAPI
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		color.Red("Can't read response body")
+		return nil, authenticating.ErrResponseBody
+	}
+
+	var supertypeID string
+	json.Unmarshal(body, &supertypeID)
+
+	return &supertypeID, nil
+}
+
+// ValidateEmail checks to see whether a valid email was entered
+func ValidateEmail(email string) bool {
+	var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+	if len(email) < 3 && len(email) > 254 {
+		return false
+	}
+	return emailRegex.MatchString(email)
+}
+
+// IsAuthorized checks the given JWT to ensure vendor is authenticated
+func IsAuthorized(endpoint func(w http.ResponseWriter, r *http.Request)) func(http.ResponseWriter, *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header["Token"] != nil {
+			token, err := jwt.Parse(r.Header["Token"][0], func(token *jwt.Token) (interface{}, error) {
+				err := godotenv.Load()
+				if err != nil {
+					return nil, authenticating.ErrNotAuthorized
+				}
+
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, authenticating.ErrNotAuthorized
+				}
+
+				return []byte(os.Getenv("JWT_SIGNING_KEY")), nil
+			})
+			if err != nil {
+				return
+			}
+
+			if token.Valid {
+				endpoint(w, r)
+			}
+		}
+	})
 }

@@ -59,12 +59,18 @@ func consume(c caching.Service) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		ctx := context.Background()
-		c.Subscribe(ctx, conn, observation.Attribute+"|"+observation.SupertypeID)
 
-		err = conn.WriteMessage(1, []byte("Connected to "+observation.Attribute+"|"+observation.SupertypeID+" closed after timeout."))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+		var messageJSON *[]byte
+		for {
+			messageJSON, err = c.Subscribe(ctx, conn, observation.Attribute+"|"+observation.SupertypeID)
+			if err != nil {
+				return
+			}
+
+			err = conn.WriteMessage(2, *messageJSON)
+			if err != nil {
+				return
+			}
 		}
 	}
 }
