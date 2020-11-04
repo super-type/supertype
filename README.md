@@ -126,7 +126,7 @@ A more detailed overview can be found below:
 }
 ```
 
-**/consume: (WebSocket):** Creates a WebSocket connection between vendor and server and subscribes the vendor to realtime updates on specified attributes
+**/subscribe: (WebSocket):** Creates a WebSocket connection between vendor and server and subscribes the vendor to realtime updates on specified attributes
 
 ## Troubleshooting 
 

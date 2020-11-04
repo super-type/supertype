@@ -5,7 +5,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/fatih/color"
 	"github.com/super-type/supertype/internal/utils"
-	"github.com/super-type/supertype/pkg/storage"
 )
 
 // GetFromDynamoDB gets an item from DynamoDB
@@ -21,7 +20,7 @@ func GetFromDynamoDB(svc *dynamodb.DynamoDB, tableName string, attribute string,
 	})
 	if err != nil {
 		color.Red("Failed to read from database")
-		return nil, storage.ErrFailedToReadDB
+		return nil, err
 	}
 
 	return result, nil
