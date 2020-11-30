@@ -28,3 +28,6 @@ var ErrGeneratingCipherBlock = errors.New("Error generating cipher block")
 
 // ErrGeneratingIV is used when there's an issue generating the iv
 var ErrGeneratingIV = errors.New("Error generating iv")
+
+// ErrInvalidEmail is used when an invalid email address is used to create an account
+var ErrInvalidEmail = errors.New("Invalid email address used")
