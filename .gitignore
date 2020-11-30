@@ -1,6 +1,12 @@
 # Mac OS X files
 .DS_Store
 
+# Elastic Beanstalk
+.ebextensions/*
+
+# Executables
+bin/*
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -24,3 +30,8 @@ TODO.txt
 
 # Environment variables
 *.env
+
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml

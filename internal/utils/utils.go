@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/dgrijalva/jwt-go"
@@ -22,6 +23,16 @@ import (
 // SetupAWSSession starts an AWS session
 func SetupAWSSession() *dynamodb.DynamoDB {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		// Specify profile to load for the session's config
+		// TODO do we need this?
+		// Profile: "profile_name",
+
+		// Provide SDK Config options, such as Region.
+		Config: aws.Config{
+			Region: aws.String("us-east-1"),
+		},
+
+		// Force enable Shared Config support
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 

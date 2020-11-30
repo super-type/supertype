@@ -70,7 +70,7 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 	if err != nil {
 		return storage.ErrMarshaling
 	}
-	resp, err := http.Post("http://localhost:8081/broadcast", "application/json", bytes.NewBuffer(requestBody))
+	resp, err := http.Post("http://localhost:5001/broadcast", "application/json", bytes.NewBuffer(requestBody))
 	if err != nil || resp.StatusCode != 200 {
 		log.Printf("error posting: %v\n", err)
 	}

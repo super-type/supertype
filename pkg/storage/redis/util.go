@@ -12,6 +12,7 @@ import (
 func EstablishCacheConnection() (*redis.Client, error) {
 	// Example new client
 	rdb := redis.NewClient(&redis.Options{
+		// Addr: "demo-supertype-ro.jjgvfa.ng.0001.use1.cache.amazonaws.com:6379",
 		Addr:     "localhost:6379",
 		Password: "", // no password set
 		DB:       0,  // use default DB

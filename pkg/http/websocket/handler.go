@@ -17,7 +17,7 @@ import (
 func Router(c caching.Service, p producing.Service) *mux.Router {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/consume", consume(c)).Methods("GET", "OPTIONS")
+	router.HandleFunc("/subscribe", consume(c)).Methods("GET", "OPTIONS")
 	router.HandleFunc("/broadcast", broadcast(p, c)).Methods("POST", "OPTIONS")
 	return router
 }
@@ -94,6 +94,7 @@ func broadcast(p producing.Service, c caching.Service) func(w http.ResponseWrite
 		}
 
 		ctx := context.Background()
+
 		c.Publish(ctx, observation.Attribute+"|"+observation.SupertypeID, observation.Ciphertext)
 
 		// todo change this from "OK" to standardized resposne

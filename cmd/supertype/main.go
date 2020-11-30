@@ -34,9 +34,9 @@ func main() {
 	// todo is this the best way to do this?
 	// source: https://gist.github.com/filewalkwithme/24363472e7424bbe7028
 	go func() {
-		color.Cyan("Starting HTTP server on port 8080...")
-		log.Fatal(http.ListenAndServe(":8080", httpRouter))
+		color.Cyan("Starting HTTP server on port 5000...")
+		log.Fatal(http.ListenAndServe(":5000", httpRouter))
 	}()
-	color.Cyan("Starting WebSocket server on port 8081...")
-	log.Fatal(http.ListenAndServe(":8081", wsRouter))
+	color.Cyan("Starting WebSocket server on port 5001...")
+	log.Fatal(http.ListenAndServe(":5001", wsRouter))
 }
