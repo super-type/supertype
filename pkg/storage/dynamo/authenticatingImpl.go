@@ -9,7 +9,10 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"net"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -20,6 +23,8 @@ import (
 	"github.com/super-type/supertype/pkg/authenticating"
 	"github.com/super-type/supertype/pkg/storage"
 )
+
+var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
 
 // CreateVendor creates a new vendor and adds it to DynamoDB
 func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
@@ -37,10 +42,25 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 		return nil, storage.ErrUnmarshaling
 	}
 
-	// Check username doesn't exist
-	if vendor.Username != "" {
+	// Check username, email doesn't exist
+	if vendor.Username != "" || vendor.Email != "" {
 		color.Red("Vendor already exists")
 		return nil, authenticating.ErrVendorAlreadyExists
+	}
+
+	// Check email is a valid email address
+	// TODO in a later refactor, this should be taken out of this function and put inside another... this is business logic, not database logic i.e. not depending on DynamoDB
+	if len(vendor.Email) < 3 && len(vendor.Email) > 254 {
+		return nil, authenticating.ErrInvalidEmail
+	}
+
+	if !emailRegex.MatchString(vendor.Email) {
+		return nil, authenticating.ErrInvalidEmail
+	}
+	parts := strings.Split(vendor.Email, "@")
+	mx, err := net.LookupMX(parts[1])
+	if err != nil || len(mx) == 0 {
+		return nil, authenticating.ErrInvalidEmail
 	}
 
 	// Generate key pair for new vendor
