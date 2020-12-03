@@ -1,8 +1,6 @@
 package dynamo
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
@@ -10,8 +8,8 @@ import (
 	"github.com/super-type/supertype/internal/utils"
 )
 
-// GetFromDynamoDB gets an item from DynamoDB
-func GetFromDynamoDB(svc *dynamodb.DynamoDB, tableName string, attribute string, value string) (*dynamodb.GetItemOutput, error) {
+// GetItemDynamoDB gets an item from DynamoDB
+func GetItemDynamoDB(svc *dynamodb.DynamoDB, tableName string, attribute string, value string) (*dynamodb.GetItemOutput, error) {
 	result, err := svc.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String(tableName),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -28,48 +26,20 @@ func GetFromDynamoDB(svc *dynamodb.DynamoDB, tableName string, attribute string,
 	return result, nil
 }
 
-// GetSkHash gets the secret key hash of the given vendor
-// TODO standardize this with GetEmail
-func GetSkHash(pk string) (*string, error) {
+// ScanDynamoDB gets given attribute
+func ScanDynamoDB(table string, attribute string, value string) (*dynamodb.ScanOutput, error) {
 	svc := utils.SetupAWSSession()
 
-	// Get the skHash of the given vendor
-	skHashInput := &dynamodb.ScanInput{
-		ExpressionAttributeNames: map[string]*string{
-			"#skHash": aws.String("skHash"),
-		},
-		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
-			":pk": {
-				S: aws.String(pk),
-			},
-		},
-		FilterExpression:     aws.String("pk = :pk"),
-		ProjectionExpression: aws.String("#skHash"),
-		TableName:            aws.String("vendor"),
-	}
-
-	skHash, err := svc.Scan(skHashInput)
-	if err != nil || CheckAWSScanChain(skHash) {
-		return nil, err
-	}
-
-	return skHash.Items[0]["skHash"].S, nil
-}
-
-// GetEmail gets the email of the given vendor
-// TODO standardize this with GetSkHash
-func GetEmail(email string) (*dynamodb.ScanOutput, error) {
-	svc := utils.SetupAWSSession()
-
-	filt := expression.Name("email").Contains(email)
+	filt := expression.Name(attribute).Contains(value)
 
 	proj := expression.NamesList(
-		expression.Name("email"),
+		expression.Name(attribute),
 	)
 
 	expr, err := expression.NewBuilder().WithFilter(filt).WithProjection(proj).Build()
 	if err != nil {
-		fmt.Println(err)
+		color.Red("Error building expression", err)
+		return nil, err
 	}
 
 	scanInput := &dynamodb.ScanInput{
@@ -77,22 +47,48 @@ func GetEmail(email string) (*dynamodb.ScanOutput, error) {
 		ExpressionAttributeValues: expr.Values(),
 		FilterExpression:          expr.Filter(),
 		ProjectionExpression:      expr.Projection(),
-		TableName:                 aws.String("vendor"),
+		TableName:                 aws.String(table),
 	}
 
 	result, err := svc.Scan(scanInput)
 	if err != nil {
-		color.Red("Error scanning")
+		color.Red("Error scanning", err)
 		return nil, err
 	}
 
 	return result, nil
 }
 
+// ScanDynamoDBWithKeyCondition gets given attribute with specific key condition
+func ScanDynamoDBWithKeyCondition(table string, attribute string, keyCondition string, keyConditionValue string) (*string, error) {
+	svc := utils.SetupAWSSession()
+
+	// Get the skHash of the given vendor
+	scanInput := &dynamodb.ScanInput{
+		ExpressionAttributeNames: map[string]*string{
+			"#" + attribute: aws.String(attribute),
+		},
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":" + keyCondition: {
+				S: aws.String(keyConditionValue),
+			},
+		},
+		FilterExpression:     aws.String(keyCondition + " = :" + keyCondition),
+		ProjectionExpression: aws.String("#" + attribute),
+		TableName:            aws.String(table),
+	}
+
+	result, err := svc.Scan(scanInput)
+	if err != nil || CheckAWSScanChain(result, attribute) {
+		return nil, err
+	}
+
+	return result.Items[0][attribute].S, nil
+}
+
 // CheckAWSScanChain checks all items through an AWS DynamoDB scan to make sure none are nil
-func CheckAWSScanChain(so *dynamodb.ScanOutput) bool {
-	// TODO do we need more values than just nil and initial empty check?
-	if so.Items == nil || len(so.Items) == 0 || so.Items[0]["email"] == nil || so.Items[0]["email"].S == nil {
+func CheckAWSScanChain(so *dynamodb.ScanOutput, attribute string) bool {
+	if so.Items == nil || len(so.Items) == 0 || so.Items[0][attribute] == nil || so.Items[0][attribute].S == nil {
 		return true
 	}
 	return false

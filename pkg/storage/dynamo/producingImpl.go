@@ -18,7 +18,7 @@ import (
 // Produce produces encyrpted data to Supertype
 func (d *Storage) Produce(o producing.ObservationRequest) error {
 	// Get the skHash of the given vendor
-	skHash, err := GetSkHash(o.PublicKey)
+	skHash, err := ScanDynamoDBWithKeyCondition("vendor", "skHash", "pk", o.PublicKey)
 
 	// Compare requesting skHash with our internal skHash. If they don't match, it's not coming from the vendor
 	if *skHash != o.SkHash {

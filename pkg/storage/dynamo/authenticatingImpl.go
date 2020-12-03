@@ -34,7 +34,7 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	// TODO we need a nice util function to get multiple attributes from the DB (i.e. username and email)
 
 	// Get username from DynamoDB
-	result, err := GetFromDynamoDB(svc, "vendor", "username", v.Username)
+	result, err := GetItemDynamoDB(svc, "vendor", "username", v.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	}
 
 	// Get email from DynamoDB
-	email, err := GetEmail(v.Email)
+	email, err := ScanDynamoDB("vendor", "email", v.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (d *Storage) CreateUser(u authenticating.UserPassword) (*string, error) {
 	svc := utils.SetupAWSSession()
 
 	// Get username from DynamoDB
-	result, err := GetFromDynamoDB(svc, "user", "username", u.Username)
+	result, err := GetItemDynamoDB(svc, "user", "username", u.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +194,7 @@ func (d *Storage) LoginVendor(v authenticating.Vendor) (*authenticating.Authenti
 	svc := utils.SetupAWSSession()
 
 	// Get username from DynamoDB
-	result, err := GetFromDynamoDB(svc, "vendor", "username", v.Username)
+	result, err := GetItemDynamoDB(svc, "vendor", "username", v.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +250,7 @@ func (d *Storage) LoginUser(u authenticating.UserPassword) (*authenticating.User
 	svc := utils.SetupAWSSession()
 
 	// Get username from DynamoDB
-	result, err := GetFromDynamoDB(svc, "user", "username", u.Username)
+	result, err := GetItemDynamoDB(svc, "user", "username", u.Username)
 	if err != nil {
 		return nil, err
 	}
