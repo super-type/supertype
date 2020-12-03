@@ -29,5 +29,11 @@ var ErrGeneratingCipherBlock = errors.New("Error generating cipher block")
 // ErrGeneratingIV is used when there's an issue generating the iv
 var ErrGeneratingIV = errors.New("Error generating iv")
 
+// ErrInvalidEmailLength is used when an invalid email address length is used to create an account
+var ErrInvalidEmailLength = errors.New("Invalid email address length. Account creation failed.")
+
+// ErrInvalidEmailMatching is used when eamil regex matching fails
+var ErrInvalidEmailMatching = errors.New("Invalid email - bad matching. Account creation failed.")
+
 // ErrInvalidEmail is used when an invalid email address is used to create an account
-var ErrInvalidEmail = errors.New("Invalid email address used")
+var ErrInvalidEmail = errors.New("Invalid email address used. Account creation failed.")

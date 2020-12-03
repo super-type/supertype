@@ -31,33 +31,41 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 	// Initialize AWS session
 	svc := utils.SetupAWSSession()
 
+	// TODO we need a nice util function to get multiple attributes from the DB (i.e. username and email)
+
 	// Get username from DynamoDB
 	result, err := GetFromDynamoDB(svc, "vendor", "username", v.Username)
 	if err != nil {
 		return nil, err
 	}
-	vendor := Vendor{}
-	err = dynamodbattribute.UnmarshalMap(result.Item, &vendor)
+	user := Vendor{}
+	err = dynamodbattribute.UnmarshalMap(result.Item, &user)
 	if err != nil {
 		return nil, storage.ErrUnmarshaling
 	}
 
+	// Get email from DynamoDB
+	email, err := GetEmail(v.Email)
+	if err != nil {
+		return nil, err
+	}
+
 	// Check username, email doesn't exist
-	if vendor.Username != "" || vendor.Email != "" {
-		color.Red("Vendor already exists")
+	if user.Username != "" || len(email.Items) != 0 {
+		color.Red("Username or email already exists")
 		return nil, authenticating.ErrVendorAlreadyExists
 	}
 
 	// Check email is a valid email address
 	// TODO in a later refactor, this should be taken out of this function and put inside another... this is business logic, not database logic i.e. not depending on DynamoDB
-	if len(vendor.Email) < 3 && len(vendor.Email) > 254 {
-		return nil, authenticating.ErrInvalidEmail
+	if len(v.Email) < 3 && len(v.Email) > 254 {
+		return nil, authenticating.ErrInvalidEmailLength
 	}
 
-	if !emailRegex.MatchString(vendor.Email) {
-		return nil, authenticating.ErrInvalidEmail
+	if !emailRegex.MatchString(v.Email) {
+		return nil, authenticating.ErrInvalidEmailMatching
 	}
-	parts := strings.Split(vendor.Email, "@")
+	parts := strings.Split(v.Email, "@")
 	mx, err := net.LookupMX(parts[1])
 	if err != nil || len(mx) == 0 {
 		return nil, authenticating.ErrInvalidEmail
