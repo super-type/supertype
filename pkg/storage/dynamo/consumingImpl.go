@@ -11,10 +11,11 @@ import (
 
 // Consume returns all observations at the requested attribute for the specified Supertype entity
 func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.ObservationResponse, error) {
-	skHash, err := GetSkHash(c.PublicKey)
+	skHash, err := ScanDynamoDBWithKeyCondition("vendor", "skHash", "pk", c.PublicKey)
 	if err != nil {
 		return nil, err
 	}
+
 	// Compare requesting skHash with our internal skHash. If they don't match, it's not coming from the vendor
 	if *skHash != c.SkHash {
 		color.Red("!!! Vendor secret key hashes do no match - potential malicious attempt !!!")
