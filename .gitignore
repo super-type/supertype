@@ -1,9 +1,6 @@
 # Mac OS X files
 .DS_Store
 
-# Elastic Beanstalk
-.ebextensions/*
-
 # Executables
 bin/*
 
