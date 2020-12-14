@@ -7,7 +7,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/super-type/supertype/internal/utils"
 	"github.com/super-type/supertype/pkg/authenticating"
-	"github.com/super-type/supertype/pkg/caching"
 	"github.com/super-type/supertype/pkg/consuming"
 	"github.com/super-type/supertype/pkg/dashboard"
 	httpUtil "github.com/super-type/supertype/pkg/http"
@@ -15,7 +14,7 @@ import (
 )
 
 // Router is the main router for the application
-func Router(a authenticating.Service, p producing.Service, c consuming.Service, d dashboard.Service, cache caching.Service) *mux.Router {
+func Router(a authenticating.Service, p producing.Service, c consuming.Service, d dashboard.Service) *mux.Router {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/healthcheck", healthcheck()).Methods("GET", "OPTIONS")
@@ -23,7 +22,6 @@ func Router(a authenticating.Service, p producing.Service, c consuming.Service, 
 	router.HandleFunc("/createVendor", createVendor(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/loginUser", loginUser(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/createUser", createUser(a)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/produce", produce(p, cache)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/consume", consume(c)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/listObservations", utils.IsAuthorized(listObservations(d))).Methods("GET", "OPTIONS")
 	return router
@@ -173,7 +171,7 @@ func createUser(a authenticating.Service) func(w http.ResponseWriter, r *http.Re
 	}
 }
 
-func produce(p producing.Service, cache caching.Service) func(w http.ResponseWriter, r *http.Request) {
+func produce(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		decoder, err := httpUtil.LocalHeaders(w, r)
 		if err != nil {

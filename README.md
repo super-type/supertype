@@ -42,7 +42,6 @@ Unlike other companies, Supertype does not make assumptions on behalf of our ven
 
 Supertype curently supports the following onramps:
 - HTTP
-- WebSocket
 
 Supertype currently supports the following API client libraries:
 - Golang
@@ -125,8 +124,6 @@ A more detailed overview can be found below:
     "attribute": "<ATTRIBUTE>"
 }
 ```
-
-**/subscribe: (WebSocket):** Creates a WebSocket connection between vendor and server and subscribes the vendor to realtime updates on specified attributes
 
 ## Troubleshooting 
 
