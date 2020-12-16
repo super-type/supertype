@@ -80,9 +80,8 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 
 	// Generate hash of secret key to be used as a signing measure for producing/consuming data
 	h := sha256.New()
-	// h.Write([]byte(utils.PrivateKeyToString(skVendor)))
 	h.Write([]byte(*skVendor))
-	skHash := hex.EncodeToString(h.Sum(nil))
+	apiKeyHash := hex.EncodeToString(h.Sum(nil))
 
 	// Generate Supertype ID
 	supertypeID, err := utils.GenerateSupertypeID(v.Password)
@@ -103,7 +102,7 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 		BusinessName:   v.BusinessName,
 		Username:       v.Username,
 		PublicKey:      *pkVendor,
-		SkHash:         skHash,
+		APIKeyHash:     apiKeyHash,
 		SupertypeID:    *supertypeID,
 		AccountBalance: 0.0,
 	}

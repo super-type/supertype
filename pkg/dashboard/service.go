@@ -2,12 +2,12 @@ package dashboard
 
 // Repository provides access to relevant storage
 type repository interface {
-	ListObservations() ([]string, error)
+	ListObservations(ObservationRequest, string) ([]string, error)
 }
 
 // Service provides dashboard operations
 type Service interface {
-	ListObservations() ([]string, error)
+	ListObservations(ObservationRequest, string) ([]string, error)
 }
 
 type service struct {
@@ -20,8 +20,8 @@ func NewService(r repository) Service {
 }
 
 // ListObservations lists all observations in the Supertype ecosystem
-func (s *service) ListObservations() ([]string, error) {
-	res, err := s.r.ListObservations()
+func (s *service) ListObservations(o ObservationRequest, apiKeyHash string) ([]string, error) {
+	res, err := s.r.ListObservations(o, apiKeyHash)
 	if err != nil {
 		return nil, err
 	}

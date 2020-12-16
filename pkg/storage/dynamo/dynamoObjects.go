@@ -26,5 +26,4 @@ type Observation struct {
 	DateAdded   string `json:"dateAdded"`
 	PublicKey   string `json:"pk"`
 	SupertypeID string `json:"supertypeID"`
-	SkHash      string `json:"skHash"`
 }

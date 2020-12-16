@@ -1,10 +1,6 @@
 package dynamo
 
 import (
-	"bytes"
-	"encoding/json"
-	"log"
-	"net/http"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -16,14 +12,16 @@ import (
 )
 
 // Produce produces encyrpted data to Supertype
-func (d *Storage) Produce(o producing.ObservationRequest) error {
-	// Get the skHash of the given vendor
-	skHash, err := ScanDynamoDBWithKeyCondition("vendor", "skHash", "pk", o.PublicKey)
+func (d *Storage) Produce(o producing.ObservationRequest, apiKeyHash string) error {
+	databaseAPIKeyHash, err := ScanDynamoDBWithKeyCondition("vendor", "apiKeyHash", "pk", o.PublicKey)
+	if err != nil || databaseAPIKeyHash == nil {
+		return err
+	}
 
-	// Compare requesting skHash with our internal skHash. If they don't match, it's not coming from the vendor
-	if *skHash != o.SkHash {
+	// Compare requesting API Key with our internal API Key. If they don't match, it's not coming from the vendor
+	if *databaseAPIKeyHash != apiKeyHash {
 		color.Red("!!! Vendor secret key hashes do no match - potential malicious attempt !!!")
-		return storage.ErrSkHashDoesNotMatch
+		return storage.ErrAPIKeyDoesNotMatch
 	}
 
 	// Initialize AWS session
@@ -56,23 +54,6 @@ func (d *Storage) Produce(o producing.ObservationRequest) error {
 	if err != nil {
 		color.Red("Failed to write to database")
 		return storage.ErrFailedToWriteDB
-	}
-
-	// Broadcast to all listening clients...
-	requestBody, err := json.Marshal(producing.ObservationRequest{
-		Attribute:   o.Attribute,
-		Ciphertext:  o.Ciphertext + "|" + o.IV + "|" + o.Attribute,
-		PublicKey:   o.PublicKey,
-		SupertypeID: o.SupertypeID,
-		SkHash:      o.SkHash,
-		IV:          o.IV,
-	})
-	if err != nil {
-		return storage.ErrMarshaling
-	}
-	resp, err := http.Post("http://localhost:5001/broadcast", "application/json", bytes.NewBuffer(requestBody))
-	if err != nil || resp.StatusCode != 200 {
-		log.Printf("error posting: %v\n", err)
 	}
 
 	return nil
