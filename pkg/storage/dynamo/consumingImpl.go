@@ -10,16 +10,16 @@ import (
 )
 
 // Consume returns all observations at the requested attribute for the specified Supertype entity
-func (d *Storage) Consume(c consuming.ObservationRequest) (*[]consuming.ObservationResponse, error) {
-	skHash, err := ScanDynamoDBWithKeyCondition("vendor", "skHash", "pk", c.PublicKey)
-	if err != nil {
+func (d *Storage) Consume(c consuming.ObservationRequest, apiKeyHash string) (*[]consuming.ObservationResponse, error) {
+	databaseAPIKeyHash, err := ScanDynamoDBWithKeyCondition("vendor", "apiKeyHash", "pk", c.PublicKey)
+	if err != nil || databaseAPIKeyHash == nil {
 		return nil, err
 	}
 
-	// Compare requesting skHash with our internal skHash. If they don't match, it's not coming from the vendor
-	if *skHash != c.SkHash {
+	// Compare requesting API Key with our internal API Key. If they don't match, it's not coming from the vendor
+	if *databaseAPIKeyHash != apiKeyHash {
 		color.Red("!!! Vendor secret key hashes do no match - potential malicious attempt !!!")
-		return nil, storage.ErrSkHashDoesNotMatch
+		return nil, storage.ErrAPIKeyDoesNotMatch
 	}
 
 	// Initialize AWS session

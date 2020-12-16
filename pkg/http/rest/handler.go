@@ -23,6 +23,7 @@ func Router(a authenticating.Service, p producing.Service, c consuming.Service, 
 	router.HandleFunc("/loginUser", loginUser(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/createUser", createUser(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/consume", consume(c)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/produce", produce(p)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/listObservations", utils.IsAuthorized(listObservations(d))).Methods("GET", "OPTIONS")
 	return router
 }
@@ -189,7 +190,12 @@ func produce(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 
-		err = p.Produce(observation)
+		apiKeyHash := r.Header.Get("X-API-Key")
+		if apiKeyHash == "" {
+			return
+		}
+
+		err = p.Produce(observation, apiKeyHash)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -217,7 +223,12 @@ func consume(c consuming.Service) func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 
-		res, err := c.Consume(observation)
+		apiKeyHash := r.Header.Get("X-API-Key")
+		if apiKeyHash == "" {
+			return
+		}
+
+		res, err := c.Consume(observation, apiKeyHash)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -230,12 +241,28 @@ func consume(c consuming.Service) func(w http.ResponseWriter, r *http.Request) {
 
 func listObservations(d dashboard.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, err := httpUtil.LocalHeaders(w, r)
+		decoder, err := httpUtil.LocalHeaders(w, r)
 		if err != nil {
 			return
 		}
 
-		observations, err := d.ListObservations()
+		var observation dashboard.ObservationRequest
+		err = decoder.Decode(&observation)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if &observation == nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+
+		apiKeyHash := r.Header.Get("X-API-Key")
+		if apiKeyHash == "" {
+			return
+		}
+
+		observations, err := d.ListObservations(observation, apiKeyHash)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

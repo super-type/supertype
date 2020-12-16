@@ -63,7 +63,6 @@ func ScanDynamoDB(table string, attribute string, value string) (*dynamodb.ScanO
 func ScanDynamoDBWithKeyCondition(table string, attribute string, keyCondition string, keyConditionValue string) (*string, error) {
 	svc := utils.SetupAWSSession()
 
-	// Get the skHash of the given vendor
 	scanInput := &dynamodb.ScanInput{
 		ExpressionAttributeNames: map[string]*string{
 			"#" + attribute: aws.String(attribute),
