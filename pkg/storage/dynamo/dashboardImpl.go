@@ -11,7 +11,7 @@ import (
 
 // ListObservations returns all observations in the Supertype ecosystem
 func (d *Storage) ListObservations(o dashboard.ObservationRequest, apiKeyHash string) ([]string, error) {
-	databaseAPIKeyHash, err := ScanDynamoDBWithKeyCondition("vendor", "apiKeyHash", "pk", o.PublicKey)
+	databaseAPIKeyHash, err := ScanDynamoDBWithKeyCondition("vendor", "apiKeyHash", "apiKeyHash", apiKeyHash)
 	if err != nil || databaseAPIKeyHash == nil {
 		return nil, err
 	}
