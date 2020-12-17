@@ -6,3 +6,8 @@ type ObservationRequest struct {
 	SupertypeID string `json:"supertypeID"`
 	PublicKey   string `json:"pk"`
 }
+
+// WebhookRequest defines a request Webhook from a vendor
+type WebhookRequest struct {
+	Endpoint string `json:"endpoint"`
+}
