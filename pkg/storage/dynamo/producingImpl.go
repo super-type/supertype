@@ -13,14 +13,15 @@ import (
 )
 
 // Produce produces encyrpted data to Supertype
-func (d *Storage) Produce(o producing.ObservationRequest, apiKeyHash string) error {
+func (d *Storage) Produce(o producing.ObservationRequest, apiKey string) error {
+	apiKeyHash := utils.GetAPIKeyHash(apiKey)
 	databaseAPIKeyHash, err := ScanDynamoDBWithKeyCondition("vendor", "apiKeyHash", "apiKeyHash", apiKeyHash)
 	if err != nil || databaseAPIKeyHash == nil {
 		return err
 	}
 
 	pk, err := ScanDynamoDBWithKeyCondition("vendor", "pk", "apiKeyHash", apiKeyHash)
-	if err != nil || databaseAPIKeyHash == nil {
+	if err != nil || pk == nil {
 		fmt.Println(err)
 		return err
 	}

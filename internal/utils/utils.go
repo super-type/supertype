@@ -2,6 +2,8 @@ package utils
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
 	"log"
@@ -137,4 +139,11 @@ func IsAuthorized(endpoint func(w http.ResponseWriter, r *http.Request)) func(ht
 			}
 		}
 	})
+}
+
+// GetAPIKeyHash returns the hashed value of the secret key
+func GetAPIKeyHash(skVendor string) string {
+	h := sha256.New()
+	h.Write([]byte(skVendor))
+	return hex.EncodeToString(h.Sum(nil))
 }

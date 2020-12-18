@@ -7,6 +7,7 @@ type repository interface {
 	LoginVendor(Vendor) (*AuthenticatedVendor, error)
 	CreateUser(UserPassword) (*string, error)
 	LoginUser(UserPassword) (*User, error)
+	AuthorizedLoginUser(UserPassword, string) (*User, error)
 }
 
 // Service provides authenticating operations
@@ -15,6 +16,7 @@ type Service interface {
 	LoginVendor(Vendor) (*AuthenticatedVendor, error)
 	CreateUser(UserPassword) (*string, error)
 	LoginUser(UserPassword) (*User, error)
+	AuthorizedLoginUser(UserPassword, string) (*User, error)
 }
 
 type service struct {
@@ -56,6 +58,15 @@ func (s *service) CreateUser(u UserPassword) (*string, error) {
 // LoginUser creates a user
 func (s *service) LoginUser(u UserPassword) (*User, error) {
 	result, err := s.r.LoginUser(u)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// AuthorizedLoginUser creates a user
+func (s *service) AuthorizedLoginUser(u UserPassword, apiKey string) (*User, error) {
+	result, err := s.r.AuthorizedLoginUser(u, apiKey)
 	if err != nil {
 		return nil, err
 	}
