@@ -17,8 +17,10 @@ import (
 func Router(a authenticating.Service, p producing.Service, c consuming.Service, d dashboard.Service) *mux.Router {
 	router := mux.NewRouter()
 
+	// TODO change camel-cased URLs
 	router.HandleFunc("/healthcheck", healthcheck()).Methods("GET", "OPTIONS")
 	router.HandleFunc("/loginVendor", loginVendor(a)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/authorized-login-user", authorizedLoginUser(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/createVendor", createVendor(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/loginUser", loginUser(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/createUser", createUser(a)).Methods("POST", "OPTIONS")
@@ -133,6 +135,40 @@ func loginUser(a authenticating.Service) func(w http.ResponseWriter, r *http.Req
 		}
 
 		result, err := a.LoginUser(user)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
+	}
+}
+
+func authorizedLoginUser(a authenticating.Service) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		decoder, err := httpUtil.LocalHeaders(w, r)
+		if err != nil {
+			return
+		}
+
+		var user authenticating.UserPassword
+		err = decoder.Decode(&user)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if &user == nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+
+		apiKeyHash := r.Header.Get("X-API-Key")
+		if apiKeyHash == "" {
+			return
+		}
+
+		result, err := a.AuthorizedLoginUser(user, apiKeyHash)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

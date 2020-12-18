@@ -20,7 +20,7 @@ func (d *Storage) Produce(o producing.ObservationRequest, apiKeyHash string) err
 	}
 
 	pk, err := ScanDynamoDBWithKeyCondition("vendor", "pk", "apiKeyHash", apiKeyHash)
-	if err != nil || databaseAPIKeyHash == nil {
+	if err != nil || pk == nil {
 		fmt.Println(err)
 		return err
 	}

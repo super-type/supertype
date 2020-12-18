@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"regexp"
@@ -308,6 +309,116 @@ func (d *Storage) LoginUser(u authenticating.UserPassword) (*authenticating.User
 
 	// Set userKey value to return on login
 	user.UserKey = base64.StdEncoding.EncodeToString(ciphertext)
+
+	return &user, nil
+}
+
+// AuthorizedLoginUser logs in the given user to the repository
+func (d *Storage) AuthorizedLoginUser(u authenticating.UserPassword, apiKeyHash string) (*authenticating.User, error) {
+	// Initialize AWS Session
+	svc := utils.SetupAWSSession()
+
+	// Get username from DynamoDB
+	result, err := GetItemDynamoDB(svc, "user", "username", u.Username)
+	if err != nil {
+		return nil, err
+	}
+	user := authenticating.User{}
+	err = dynamodbattribute.UnmarshalMap(result.Item, &user)
+	if err != nil {
+		color.Red("Error unmarshaling data")
+		return nil, storage.ErrUnmarshaling
+	}
+
+	// Check user exists and get object
+	if user.Username == "" {
+		color.Red("User not found")
+		return nil, authenticating.ErrUserNotFound
+	}
+
+	// Authenticate with NuID
+	requestBody, err := json.Marshal(map[string]string{
+		"password":    u.Password,
+		"supertypeID": user.SupertypeID,
+	})
+	if err != nil {
+		color.Red("Error encoding data")
+		return nil, storage.ErrEncoding
+	}
+
+	resp, err := http.Post("https://z1lwetrbfe.execute-api.us-east-1.amazonaws.com/default/login-vendor", "application/json", bytes.NewBuffer(requestBody))
+	if err != nil {
+		color.Red("Error requesting Supertype API")
+		return nil, authenticating.ErrRequestingAPI
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		color.Red("API request gave bad response status")
+		return nil, authenticating.ErrRequestingAPI
+	}
+
+	// Key returned on login is the SupertypeID encrypted with the correct password as the AES encryption key
+	generationKey := []byte(u.Password)
+	generationPlaintext := []byte(user.SupertypeID)
+
+	// Encrypt
+	block, err := aes.NewCipher(generationKey[0:32])
+	if err != nil {
+		return nil, authenticating.ErrGeneratingCipherBlock
+	}
+	iv := make([]byte, aes.BlockSize)
+	if _, err := rand.Read(iv); err != nil {
+		return nil, authenticating.ErrGeneratingIV
+	}
+	cfb := cipher.NewCFBEncrypter(block, iv)
+	ciphertext := make([]byte, len(generationPlaintext))
+	cfb.XORKeyStream(ciphertext, generationPlaintext)
+
+	// Set userKey value to return on login
+	user.UserKey = base64.StdEncoding.EncodeToString(ciphertext)
+
+	apiKeyHashHashed := utils.GetAPIKeyHash(apiKeyHash)
+
+	// Get venor's public key given the vendor's API Key
+	pk, err := ScanDynamoDBWithKeyCondition("vendor", "pk", "apiKeyHash", apiKeyHashHashed)
+	if err != nil || pk == nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	pkAlreadyExists, err := ScanDynamoDBWithKeyCondition("user", "pk", "pk", *pk)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	if pkAlreadyExists == nil {
+		userWithVendors := authenticating.UserWithVendors{}
+		userWithVendors.SupertypeID = user.SupertypeID
+		userWithVendors.Username = user.Username
+		// Associate vendor with user
+		userWithVendors.Vendors = append(userWithVendors.Vendors, *pk)
+
+		// Upload updated user to DynamoDB
+		av, err := dynamodbattribute.MarshalMap(userWithVendors)
+		if err != nil {
+			color.Red("Error marshaling data")
+			return nil, storage.ErrMarshaling
+		}
+
+		input := &dynamodb.PutItemInput{
+			Item:      av,
+			TableName: aws.String("user"),
+		}
+
+		_, err = svc.PutItem(input)
+		if err != nil {
+			color.Red("Failed to write to database")
+			return nil, storage.ErrFailedToWriteDB
+		}
+	}
 
 	return &user, nil
 }
