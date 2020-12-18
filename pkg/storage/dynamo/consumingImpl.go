@@ -10,7 +10,8 @@ import (
 )
 
 // Consume returns all observations at the requested attribute for the specified Supertype entity
-func (d *Storage) Consume(c consuming.ObservationRequest, apiKeyHash string) (*[]consuming.ObservationResponse, error) {
+func (d *Storage) Consume(c consuming.ObservationRequest, apiKey string) (*[]consuming.ObservationResponse, error) {
+	apiKeyHash := utils.GetAPIKeyHash(apiKey)
 	databaseAPIKeyHash, err := ScanDynamoDBWithKeyCondition("vendor", "apiKeyHash", "apiKeyHash", apiKeyHash)
 	if err != nil || databaseAPIKeyHash == nil {
 		return nil, err

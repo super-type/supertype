@@ -314,7 +314,7 @@ func (d *Storage) LoginUser(u authenticating.UserPassword) (*authenticating.User
 }
 
 // AuthorizedLoginUser logs in the given user to the repository
-func (d *Storage) AuthorizedLoginUser(u authenticating.UserPassword, apiKeyHash string) (*authenticating.User, error) {
+func (d *Storage) AuthorizedLoginUser(u authenticating.UserPassword, apiKey string) (*authenticating.User, error) {
 	// Initialize AWS Session
 	svc := utils.SetupAWSSession()
 
@@ -379,10 +379,10 @@ func (d *Storage) AuthorizedLoginUser(u authenticating.UserPassword, apiKeyHash 
 	// Set userKey value to return on login
 	user.UserKey = base64.StdEncoding.EncodeToString(ciphertext)
 
-	apiKeyHashHashed := utils.GetAPIKeyHash(apiKeyHash)
+	apiKeyHash := utils.GetAPIKeyHash(apiKey)
 
 	// Get venor's public key given the vendor's API Key
-	pk, err := ScanDynamoDBWithKeyCondition("vendor", "pk", "apiKeyHash", apiKeyHashHashed)
+	pk, err := ScanDynamoDBWithKeyCondition("vendor", "pk", "apiKeyHash", apiKeyHash)
 	if err != nil || pk == nil {
 		fmt.Println(err)
 		return nil, err

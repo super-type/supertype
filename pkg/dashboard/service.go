@@ -20,8 +20,8 @@ func NewService(r repository) Service {
 }
 
 // ListObservations lists all observations in the Supertype ecosystem
-func (s *service) ListObservations(o ObservationRequest, apiKeyHash string) ([]string, error) {
-	res, err := s.r.ListObservations(o, apiKeyHash)
+func (s *service) ListObservations(o ObservationRequest, apiKey string) ([]string, error) {
+	res, err := s.r.ListObservations(o, apiKey)
 	if err != nil {
 		return nil, err
 	}

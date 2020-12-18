@@ -13,7 +13,8 @@ import (
 )
 
 // Produce produces encyrpted data to Supertype
-func (d *Storage) Produce(o producing.ObservationRequest, apiKeyHash string) error {
+func (d *Storage) Produce(o producing.ObservationRequest, apiKey string) error {
+	apiKeyHash := utils.GetAPIKeyHash(apiKey)
 	databaseAPIKeyHash, err := ScanDynamoDBWithKeyCondition("vendor", "apiKeyHash", "apiKeyHash", apiKeyHash)
 	if err != nil || databaseAPIKeyHash == nil {
 		return err

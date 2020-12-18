@@ -20,8 +20,8 @@ func NewService(r repository) Service {
 }
 
 // Consume consumes encrypted data from Supertype and returns it to vendors
-func (s *service) Consume(o ObservationRequest, apiKeyHash string) (*[]ObservationResponse, error) {
-	observation, err := s.r.Consume(o, apiKeyHash)
+func (s *service) Consume(o ObservationRequest, apiKey string) (*[]ObservationResponse, error) {
+	observation, err := s.r.Consume(o, apiKey)
 	if err != nil {
 		return nil, err
 	}

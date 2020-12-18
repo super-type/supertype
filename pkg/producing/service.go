@@ -20,8 +20,8 @@ func NewService(r repository) Service {
 }
 
 // Produce produces encrypted data to Supertype
-func (s *service) Produce(o ObservationRequest, apiKeyHash string) error {
-	err := s.r.Produce(o, apiKeyHash)
+func (s *service) Produce(o ObservationRequest, apiKey string) error {
+	err := s.r.Produce(o, apiKey)
 	if err != nil {
 		return err
 	}

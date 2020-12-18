@@ -163,12 +163,12 @@ func authorizedLoginUser(a authenticating.Service) func(w http.ResponseWriter, r
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 
-		apiKeyHash := r.Header.Get("X-API-Key")
-		if apiKeyHash == "" {
+		apiKey := r.Header.Get("X-API-Key")
+		if apiKey == "" {
 			return
 		}
 
-		result, err := a.AuthorizedLoginUser(user, apiKeyHash)
+		result, err := a.AuthorizedLoginUser(user, apiKey)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -226,12 +226,12 @@ func produce(p producing.Service) func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 
-		apiKeyHash := r.Header.Get("X-API-Key")
-		if apiKeyHash == "" {
+		apiKey := r.Header.Get("X-API-Key")
+		if apiKey == "" {
 			return
 		}
 
-		err = p.Produce(observation, apiKeyHash)
+		err = p.Produce(observation, apiKey)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -259,12 +259,12 @@ func consume(c consuming.Service) func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 
-		apiKeyHash := r.Header.Get("X-API-Key")
-		if apiKeyHash == "" {
+		apiKey := r.Header.Get("X-API-Key")
+		if apiKey == "" {
 			return
 		}
 
-		res, err := c.Consume(observation, apiKeyHash)
+		res, err := c.Consume(observation, apiKey)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -293,12 +293,12 @@ func listObservations(d dashboard.Service) func(w http.ResponseWriter, r *http.R
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 
-		apiKeyHash := r.Header.Get("X-API-Key")
-		if apiKeyHash == "" {
+		apiKey := r.Header.Get("X-API-Key")
+		if apiKey == "" {
 			return
 		}
 
-		observations, err := d.ListObservations(observation, apiKeyHash)
+		observations, err := d.ListObservations(observation, apiKey)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

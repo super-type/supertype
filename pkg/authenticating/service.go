@@ -65,8 +65,8 @@ func (s *service) LoginUser(u UserPassword) (*User, error) {
 }
 
 // AuthorizedLoginUser creates a user
-func (s *service) AuthorizedLoginUser(u UserPassword, apiKeyHash string) (*User, error) {
-	result, err := s.r.AuthorizedLoginUser(u, apiKeyHash)
+func (s *service) AuthorizedLoginUser(u UserPassword, apiKey string) (*User, error) {
+	result, err := s.r.AuthorizedLoginUser(u, apiKey)
 	if err != nil {
 		return nil, err
 	}
