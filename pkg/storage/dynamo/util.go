@@ -3,6 +3,7 @@ package dynamo
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 	"github.com/fatih/color"
 	"github.com/super-type/supertype/internal/utils"
@@ -91,4 +92,27 @@ func CheckAWSScanChain(so *dynamodb.ScanOutput, attribute string) bool {
 		return true
 	}
 	return false
+}
+
+// PutItemInDynamoDB adds an item to DynamoDb
+func PutItemInDynamoDB(in interface{}, table string, svc *dynamodb.DynamoDB) error {
+	// Upload new vendor to DynamoDB
+	av, err := dynamodbattribute.MarshalMap(in)
+	if err != nil {
+		color.Red("Error marshaling data")
+		return err
+	}
+
+	input := &dynamodb.PutItemInput{
+		Item:      av,
+		TableName: aws.String("subscribers"),
+	}
+
+	_, err = svc.PutItem(input)
+	if err != nil {
+		color.Red("Failed to write to database")
+		return err
+	}
+
+	return nil
 }

@@ -5,11 +5,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -146,4 +149,38 @@ func GetAPIKeyHash(skVendor string) string {
 	h := sha256.New()
 	h.Write([]byte(skVendor))
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+// TraverseLevels traverses levels of an attribute
+func TraverseLevels(jsonString string, destination []string, levels interface{}, endpoint string) (*string, error) {
+	// Check to make sure URL isn't already contained in subscribers list
+	if strings.Contains(jsonString, endpoint) {
+		// TODO some kind of telling message to vendor
+		fmt.Println("Webhook URL already subscribed")
+		return nil, errors.New("Webhook URL already subscribed")
+	}
+
+	// Register the URL granularly
+	for i := 0; i < len(destination); i++ {
+		if levels.(map[string]interface{})[destination[i]] == nil {
+			continue
+		}
+		levels = levels.(map[string]interface{})[destination[i]]
+	}
+
+	levels = levels.(map[string]interface{})["subscribers"]
+	urls := levels.([]interface{})
+	urls = append(urls, endpoint)
+
+	var result string
+
+	for _, url := range urls {
+		urlIndex := strings.Index(jsonString, url.(string))
+		if urlIndex != -1 {
+			quotation := urlIndex + strings.Index(jsonString[urlIndex:], `"`)
+			result = jsonString[0:quotation] + `","` + endpoint + `"` + jsonString[quotation+1:]
+		}
+	}
+
+	return &result, nil
 }

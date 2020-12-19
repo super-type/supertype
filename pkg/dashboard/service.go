@@ -3,11 +3,13 @@ package dashboard
 // Repository provides access to relevant storage
 type repository interface {
 	ListObservations(ObservationRequest, string) ([]string, error)
+	RegisterWebhook(WebhookRequest, string) error
 }
 
 // Service provides dashboard operations
 type Service interface {
 	ListObservations(ObservationRequest, string) ([]string, error)
+	RegisterWebhook(WebhookRequest, string) error
 }
 
 type service struct {
@@ -26,4 +28,13 @@ func (s *service) ListObservations(o ObservationRequest, apiKey string) ([]strin
 		return nil, err
 	}
 	return res, nil
+}
+
+// RegisterWebhook creates a new webhook on a vendor's request
+func (s *service) RegisterWebhook(webhookRequest WebhookRequest, apiKey string) error {
+	err := s.r.RegisterWebhook(webhookRequest, apiKey)
+	if err != nil {
+		return err
+	}
+	return nil
 }
