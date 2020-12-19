@@ -15,8 +15,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/fatih/color"
 	"github.com/super-type/supertype/internal/keys"
@@ -108,22 +106,9 @@ func (d *Storage) CreateVendor(v authenticating.Vendor) (*[2]string, error) {
 		AccountBalance: 0.0,
 	}
 
-	// Upload new vendor to DynamoDB
-	av, err := dynamodbattribute.MarshalMap(createVendor)
+	err = PutItemInDynamoDB(createVendor, "vendor", svc)
 	if err != nil {
-		color.Red("Error marshaling data")
-		return nil, storage.ErrMarshaling
-	}
-
-	input := &dynamodb.PutItemInput{
-		Item:      av,
-		TableName: aws.String("vendor"),
-	}
-
-	_, err = svc.PutItem(input)
-	if err != nil {
-		color.Red("Failed to write to database")
-		return nil, storage.ErrFailedToWriteDB
+		return nil, err
 	}
 
 	keyPair := [2]string{*pkVendor, *skVendor}
@@ -166,21 +151,9 @@ func (d *Storage) CreateUser(u authenticating.UserPassword) (*string, error) {
 	}
 
 	// Upload new user to DynamoDB
-	av, err := dynamodbattribute.MarshalMap(createUser)
+	err = PutItemInDynamoDB(createUser, "user", svc)
 	if err != nil {
-		color.Red("Error marshaling data")
-		return nil, storage.ErrMarshaling
-	}
-
-	input := &dynamodb.PutItemInput{
-		Item:      av,
-		TableName: aws.String("user"),
-	}
-
-	_, err = svc.PutItem(input)
-	if err != nil {
-		color.Red("Failed to write to database")
-		return nil, storage.ErrFailedToWriteDB
+		return nil, err
 	}
 
 	success := "success"
@@ -402,21 +375,9 @@ func (d *Storage) AuthorizedLoginUser(u authenticating.UserPassword, apiKey stri
 		userWithVendors.Vendors = append(userWithVendors.Vendors, *pk)
 
 		// Upload updated user to DynamoDB
-		av, err := dynamodbattribute.MarshalMap(userWithVendors)
+		err = PutItemInDynamoDB(userWithVendors, "user", svc)
 		if err != nil {
-			color.Red("Error marshaling data")
-			return nil, storage.ErrMarshaling
-		}
-
-		input := &dynamodb.PutItemInput{
-			Item:      av,
-			TableName: aws.String("user"),
-		}
-
-		_, err = svc.PutItem(input)
-		if err != nil {
-			color.Red("Failed to write to database")
-			return nil, storage.ErrFailedToWriteDB
+			return nil, err
 		}
 	}
 

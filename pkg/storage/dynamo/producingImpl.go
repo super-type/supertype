@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/fatih/color"
 	"github.com/super-type/supertype/internal/utils"
 	"github.com/super-type/supertype/pkg/producing"
@@ -47,21 +45,9 @@ func (d *Storage) Produce(o producing.ObservationRequest, apiKey string) error {
 	}
 
 	// Upload new observation to DynamoDB
-	av, err := dynamodbattribute.MarshalMap(d.Observation)
+	err = PutItemInDynamoDB(d.Observation, o.Attribute, svc)
 	if err != nil {
-		color.Red("Error marshaling data")
-		return storage.ErrMarshaling
-	}
-
-	input := &dynamodb.PutItemInput{
-		Item:      av,
-		TableName: &o.Attribute,
-	}
-
-	_, err = svc.PutItem(input)
-	if err != nil {
-		color.Red("Failed to write to database")
-		return storage.ErrFailedToWriteDB
+		return err
 	}
 
 	return nil
