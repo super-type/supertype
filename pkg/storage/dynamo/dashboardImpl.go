@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/fatih/color"
 	"github.com/super-type/supertype/internal/utils"
+	"github.com/super-type/supertype/pkg/authenticating"
 	"github.com/super-type/supertype/pkg/dashboard"
 	"github.com/super-type/supertype/pkg/storage"
 )
@@ -148,6 +149,45 @@ func (d *Storage) RegisterWebhook(webhookRequest dashboard.WebhookRequest, apiKe
 	case "bathroom":
 	default:
 		return errors.New("Invalid attribute")
+	}
+
+	username, err := ScanDynamoDBWithKeyCondition("vendor", "username", "apiKeyHash", apiKeyHash)
+	if err != nil {
+		return err
+	}
+	result, err = GetItemDynamoDB(svc, "vendor", "username", *username)
+	if err != nil {
+		return err
+	}
+
+	vendor := authenticating.CreateVendor{}
+	err = dynamodbattribute.UnmarshalMap(result.Item, &vendor)
+	if err != nil {
+		color.Red("Error unmarshaling data")
+		return storage.ErrUnmarshaling
+	}
+
+	updatedWebhooks := append(vendor.Webhooks, webhookRequest.Endpoint)
+
+	updatedVendor := authenticating.CreateVendor{
+		FirstName:      vendor.FirstName,
+		LastName:       vendor.LastName,
+		Email:          vendor.Email,
+		BusinessName:   vendor.BusinessName,
+		Username:       vendor.Username,
+		PublicKey:      vendor.PublicKey,
+		APIKeyHash:     apiKeyHash,
+		SupertypeID:    vendor.SupertypeID,
+		AccountBalance: vendor.AccountBalance,
+		Webhooks:       updatedWebhooks,
+	}
+
+	// TODO this needs to be an atomic transaction. If we can't add the URL to vendor, we need to remove it from "subscribers"
+	// The URL can't exist in one place but not the other... maybe this is bad practice without a single source of truth?
+	err = PutItemInDynamoDB(updatedVendor, "vendor", svc)
+	if err != nil {
+		fmt.Println(err)
+		return err
 	}
 
 	return nil

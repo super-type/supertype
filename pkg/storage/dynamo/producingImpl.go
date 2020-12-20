@@ -50,5 +50,11 @@ func (d *Storage) Produce(o producing.ObservationRequest, apiKey string) error {
 		return err
 	}
 
+	// TODO after uploading, we want to
+	// 1. Associate supertypeID with user, and get all vendors associated with that user
+	// 2. Get all URLs associated with those vendors associated with the given user
+	// 3. Iterate through all URLs for the published attribute (like all URLs for master-bedroom/lights/status)
+	// 4. If a URL matches the URLs associated with the vendors that are associated with a given user, send a Webhook POST request
+
 	return nil
 }

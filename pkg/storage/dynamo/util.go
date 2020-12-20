@@ -105,7 +105,7 @@ func PutItemInDynamoDB(in interface{}, table string, svc *dynamodb.DynamoDB) err
 
 	input := &dynamodb.PutItemInput{
 		Item:      av,
-		TableName: aws.String("subscribers"),
+		TableName: aws.String(table),
 	}
 
 	_, err = svc.PutItem(input)
