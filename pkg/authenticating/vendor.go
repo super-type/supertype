@@ -8,6 +8,7 @@ type Vendor struct {
 	BusinessName   string               `json:"businessName"`
 	Username       string               `json:"username"`
 	Password       string               `json:"password"`
+	APIKeyHash     string               `json:"apiKeyHash"`
 	PublicKey      string               `json:"pk"`
 	SupertypeID    string               `json:"supertypeID"`
 	Connections    map[string][2]string `json:"connections"`
@@ -26,6 +27,7 @@ type CreateVendor struct {
 	SupertypeID    string               `json:"supertypeID"`
 	Connections    map[string][2]string `json:"connections"`
 	AccountBalance float32              `json:"accountBalance"`
+	Webhooks       []string             `json:"webhooks"`
 }
 
 // AuthenticatedVendor is a password-less struct including the JWT returned to the user
