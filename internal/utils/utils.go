@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -151,25 +150,20 @@ func GetAPIKeyHash(skVendor string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// TraverseLevels traverses levels of an attribute
-func TraverseLevels(jsonString string, destination []string, levels interface{}, endpoint string) (*string, error) {
-	// Check to make sure URL isn't already contained in subscribers list
+// ValidateNewSubscriberURL determines whether or not a requested Webhook URL already exists
+// TODO move this to a better file location on reorg
+func ValidateNewSubscriberURL(jsonString string, endpoint string) error {
 	if strings.Contains(jsonString, endpoint) {
-		// TODO some kind of telling message to vendor
-		fmt.Println("Webhook URL already subscribed")
-		return nil, errors.New("Webhook URL already subscribed")
+		color.Red("Webhook URL already subscribed")
+		return errors.New("Webhook URL already subscribed")
 	}
 
-	// Register the URL granularly
-	for i := 0; i < len(destination); i++ {
-		if levels.(map[string]interface{})[destination[i]] == nil {
-			continue
-		}
-		levels = levels.(map[string]interface{})[destination[i]]
-	}
+	return nil
+}
 
-	levels = levels.(map[string]interface{})["subscribers"]
-	urls := levels.([]interface{})
+// AppendToSubscribers traverses levels of an attribute
+// TODO move this to a better file location on reorg
+func AppendToSubscribers(jsonString string, urls []interface{}, endpoint string) (*string, error) {
 	urls = append(urls, endpoint)
 
 	var result string

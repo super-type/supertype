@@ -57,7 +57,6 @@ func (d *Storage) Produce(o producing.ObservationRequest, apiKey string) error {
 		return err
 	}
 
-	// TODO after uploading, we want to
 	// 1. Associate supertypeID with user, and get all vendors associated with that user
 	username, err := ScanDynamoDBWithKeyCondition("user", "username", "supertypeID", o.SupertypeID)
 	if err != nil {
@@ -109,16 +108,7 @@ func (d *Storage) Produce(o producing.ObservationRequest, apiKey string) error {
 		return errors.New("Couldn't find attribute")
 	}
 
-	for i := 0; i < len(destination); i++ {
-		if levels.(map[string]interface{})[destination[i]] == nil {
-			continue
-		}
-		levels = levels.(map[string]interface{})[destination[i]]
-	}
-
-	levels = levels.(map[string]interface{})["subscribers"]
-	urls := levels.([]interface{})
-
+	urls := GetSubscribersFromEndpoint(destination, levels)
 	for _, url := range urls {
 		webhookURLs = append(webhookURLs, url.(string))
 	}
@@ -146,7 +136,7 @@ func (d *Storage) Produce(o producing.ObservationRequest, apiKey string) error {
 				return err
 			}
 			req.Header.Add("Content-Type", "application/json")
-			req.Header.Add("X-Supertype-Key", apiKeyHash) // Send API Key Hash as signature, so vendors can verify it's from us
+			req.Header.Add("X-Supertype-Signature", apiKeyHash) // Send API Key Hash as signature, so vendors can verify it's from us
 
 			resp, err := client.Do(req)
 			if err != nil {
