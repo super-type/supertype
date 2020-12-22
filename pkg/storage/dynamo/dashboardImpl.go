@@ -122,7 +122,13 @@ func (d *Storage) RegisterWebhook(webhookRequest dashboard.WebhookRequest, apiKe
 			return err
 		}
 
-		updatedAttribute, err := utils.TraverseLevels(string(b), destination, levels, webhookRequest.Endpoint)
+		err = utils.ValidateNewSubscriberURL(string(b), webhookRequest.Endpoint)
+		if err != nil {
+			return err
+		}
+
+		urls := GetSubscribersFromEndpoint(destination, levels)
+		updatedAttribute, err := utils.AppendToSubscribers(string(b), urls, webhookRequest.Endpoint)
 		if err != nil {
 			return err
 		}

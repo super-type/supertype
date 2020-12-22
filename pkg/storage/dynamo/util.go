@@ -94,6 +94,22 @@ func CheckAWSScanChain(so *dynamodb.ScanOutput, attribute string) bool {
 	return false
 }
 
+// GetSubscribersFromEndpoint moves through an endpoint to the end to the last value
+func GetSubscribersFromEndpoint(destination []string, levels interface{}) []interface{} {
+	// Register the URL granularly
+	for i := 0; i < len(destination); i++ {
+		if levels.(map[string]interface{})[destination[i]] == nil {
+			continue
+		}
+		levels = levels.(map[string]interface{})[destination[i]]
+	}
+
+	levels = levels.(map[string]interface{})["subscribers"]
+	urls := levels.([]interface{})
+
+	return urls
+}
+
 // PutItemInDynamoDB adds an item to DynamoDb
 func PutItemInDynamoDB(in interface{}, table string, svc *dynamodb.DynamoDB) error {
 	// Upload new vendor to DynamoDB

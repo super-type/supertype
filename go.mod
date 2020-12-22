@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	9fans.net/go v0.0.2
-	github.com/aws/aws-sdk-go v1.33.2
+	github.com/aws/aws-sdk-go v1.33.6
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis v6.15.9+incompatible
@@ -14,5 +14,5 @@ require (
 	github.com/joho/godotenv v1.3.0
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.6.1
-	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
+	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
 )
