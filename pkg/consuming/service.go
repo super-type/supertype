@@ -2,12 +2,12 @@ package consuming
 
 // Repository provides access to relevant storage
 type repository interface {
-	Consume(ObservationRequest, string) (*[]ObservationResponse, error)
+	Consume(ObservationRequest, string) (*ObservationResponse, error)
 }
 
 // Service provides consuming operations
 type Service interface {
-	Consume(ObservationRequest, string) (*[]ObservationResponse, error)
+	Consume(ObservationRequest, string) (*ObservationResponse, error)
 }
 
 type service struct {
@@ -20,7 +20,7 @@ func NewService(r repository) Service {
 }
 
 // Consume consumes encrypted data from Supertype and returns it to vendors
-func (s *service) Consume(o ObservationRequest, apiKey string) (*[]ObservationResponse, error) {
+func (s *service) Consume(o ObservationRequest, apiKey string) (*ObservationResponse, error) {
 	observation, err := s.r.Consume(o, apiKey)
 	if err != nil {
 		return nil, err
