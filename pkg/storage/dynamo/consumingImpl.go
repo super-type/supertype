@@ -1,8 +1,6 @@
 package dynamo
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/fatih/color"
 	"github.com/super-type/supertype/internal/utils"
 	"github.com/super-type/supertype/pkg/consuming"
@@ -10,7 +8,7 @@ import (
 )
 
 // Consume returns all observations at the requested attribute for the specified Supertype entity
-func (d *Storage) Consume(c consuming.ObservationRequest, apiKey string) (*[]consuming.ObservationResponse, error) {
+func (d *Storage) Consume(c consuming.ObservationRequest, apiKey string) (*consuming.ObservationResponse, error) {
 	apiKeyHash := utils.GetAPIKeyHash(apiKey)
 	databaseAPIKeyHash, err := ScanDynamoDBWithKeyCondition("vendor", "apiKeyHash", "apiKeyHash", apiKeyHash)
 	if err != nil || databaseAPIKeyHash == nil {
@@ -26,40 +24,17 @@ func (d *Storage) Consume(c consuming.ObservationRequest, apiKey string) (*[]con
 	// Initialize AWS session
 	svc := utils.SetupAWSSession()
 
-	// Get all observations for the specified attribute with user's Supertype ID
-	input := &dynamodb.ScanInput{
-		ExpressionAttributeNames: map[string]*string{
-			"#ciphertext":  aws.String("ciphertext"),
-			"#dateAdded":   aws.String("dateAdded"),
-			"#pk":          aws.String("pk"),          // ? do we need this
-			"#supertypeID": aws.String("supertypeID"), // ? do we need this
-		},
-		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
-			":supertypeID": {
-				S: aws.String(c.SupertypeID),
-			},
-		},
-		FilterExpression:     aws.String("supertypeID = :supertypeID"),
-		ProjectionExpression: aws.String("#ciphertext, #dateAdded, #pk, #supertypeID"),
-		TableName:            aws.String(c.Attribute),
-	}
-
-	result, err := svc.Scan(input)
+	val, err := GetItemDynamoDB(svc, c.Attribute, "supertypeID", c.SupertypeID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get observations from result
-	observations := make([]consuming.ObservationResponse, 0)
-	for _, observation := range result.Items {
-		tempObservation := consuming.ObservationResponse{
-			Ciphertext:  *(observation["ciphertext"].S),
-			DateAdded:   *(observation["dateAdded"].S),
-			PublicKey:   *(observation["pk"].S),
-			SupertypeID: *(observation["supertypeID"].S),
-		}
-		observations = append(observations, tempObservation)
+	observation := consuming.ObservationResponse{
+		Ciphertext:  *(val.Item["ciphertext"].S),
+		DateAdded:   *(val.Item["dateAdded"].S),
+		PublicKey:   *(val.Item["pk"].S),
+		SupertypeID: *(val.Item["supertypeID"].S),
 	}
 
-	return &observations, nil
+	return &observation, nil
 }
