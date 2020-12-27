@@ -26,8 +26,8 @@ func Router(a authenticating.Service, p producing.Service, c consuming.Service, 
 	router.HandleFunc("/createUser", createUser(a)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/consume", consume(c)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/produce", produce(p)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/listObservations", utils.IsAuthorized(listObservations(d))).Methods("GET", "OPTIONS") // TODO make this list-observations. Do we need isAuthorized()?
-	router.HandleFunc("/register-webhook", registerWebhook(d)).Methods("POST", "OPTIONS")                     // TODO do we need isAuthorized()?
+	router.HandleFunc("/list-attributes", utils.IsAuthorized(listAttributes(d))).Methods("GET", "OPTIONS")
+	router.HandleFunc("/register-webhook", registerWebhook(d)).Methods("POST", "OPTIONS") // TODO do we need isAuthorized()?
 	return router
 }
 
@@ -276,30 +276,9 @@ func consume(c consuming.Service) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func listObservations(d dashboard.Service) func(w http.ResponseWriter, r *http.Request) {
+func listAttributes(d dashboard.Service) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		decoder, err := httpUtil.LocalHeaders(w, r)
-		if err != nil {
-			return
-		}
-
-		var observation dashboard.ObservationRequest
-		err = decoder.Decode(&observation)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if &observation == nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
-
-		apiKey := r.Header.Get("X-API-Key")
-		if apiKey == "" {
-			return
-		}
-
-		observations, err := d.ListObservations(observation, apiKey)
+		observations, err := d.ListAttributes()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

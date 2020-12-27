@@ -2,13 +2,13 @@ package dashboard
 
 // Repository provides access to relevant storage
 type repository interface {
-	ListObservations(ObservationRequest, string) ([]string, error)
+	ListAttributes() ([]string, error)
 	RegisterWebhook(WebhookRequest, string) error
 }
 
 // Service provides dashboard operations
 type Service interface {
-	ListObservations(ObservationRequest, string) ([]string, error)
+	ListAttributes() ([]string, error)
 	RegisterWebhook(WebhookRequest, string) error
 }
 
@@ -21,9 +21,9 @@ func NewService(r repository) Service {
 	return &service{r}
 }
 
-// ListObservations lists all observations in the Supertype ecosystem
-func (s *service) ListObservations(o ObservationRequest, apiKey string) ([]string, error) {
-	res, err := s.r.ListObservations(o, apiKey)
+// ListAttributes lists all observations in the Supertype ecosystem
+func (s *service) ListAttributes() ([]string, error) {
+	res, err := s.r.ListAttributes()
 	if err != nil {
 		return nil, err
 	}
