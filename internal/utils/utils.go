@@ -141,8 +141,6 @@ func IsAuthorized(endpoint func(w http.ResponseWriter, r *http.Request)) func(ht
 				return
 			}
 
-			fmt.Printf("valid? %v\n", token.Valid)
-
 			if token.Valid {
 				endpoint(w, r)
 			}
