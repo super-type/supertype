@@ -17,20 +17,8 @@ import (
 	"github.com/super-type/supertype/pkg/storage"
 )
 
-// ListObservations returns all observations in the Supertype ecosystem
-func (d *Storage) ListObservations(o dashboard.ObservationRequest, apiKey string) ([]string, error) {
-	apiKeyHash := utils.GetAPIKeyHash(apiKey)
-	databaseAPIKeyHash, err := ScanDynamoDBWithKeyCondition("vendor", "apiKeyHash", "apiKeyHash", apiKeyHash)
-	if err != nil || databaseAPIKeyHash == nil {
-		return nil, err
-	}
-
-	// Compare requesting API Key with our internal API Key. If they don't match, it's not coming from the vendor
-	if *databaseAPIKeyHash != apiKeyHash {
-		color.Red("!!! Vendor secret key hashes do no match - potential malicious attempt !!!")
-		return nil, storage.ErrAPIKeyDoesNotMatch
-	}
-
+// ListAttributes returns all observations in the Supertype ecosystem
+func (d *Storage) ListAttributes() ([]string, error) {
 	// Initialize AWS session
 	svc := utils.SetupAWSSession()
 	input := &dynamodb.ListTablesInput{}
