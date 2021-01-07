@@ -11,7 +11,7 @@ import (
 func LocalHeaders(w http.ResponseWriter, r *http.Request) (*json.Decoder, error) {
 	(w).Header().Set("Access-Control-Allow-Origin", "*")
 	(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-	(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-API-Key")
+	(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-API-Key, Token")
 	// todo we may still want to leave this but unsure
 	if (r).Method == "OPTIONS" {
 		return nil, errors.New("OPTIONS")
