@@ -284,6 +284,8 @@ func listAttributes(d dashboard.Service) func(w http.ResponseWriter, r *http.Req
 			return
 		}
 
+		// TODO we want to create a standard API response
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(observations)
 	}
