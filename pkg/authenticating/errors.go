@@ -5,8 +5,8 @@ import "errors"
 // ErrVendorNotFound is used when a vendor is not found in the database
 var ErrVendorNotFound = errors.New("Vendor not found")
 
-// ErrVendorAlreadyExists is used when attempting to create an already-used username
-var ErrVendorAlreadyExists = errors.New("Vendor already exists")
+// ErrAlreadyExists is used when attempting to create an already-used username
+var ErrAlreadyExists = errors.New("Vendor already exists")
 
 // ErrUserNotFound is used when a user is not found in the database
 var ErrUserNotFound = errors.New("User not found")
@@ -30,10 +30,10 @@ var ErrGeneratingCipherBlock = errors.New("Error generating cipher block")
 var ErrGeneratingIV = errors.New("Error generating iv")
 
 // ErrInvalidEmailLength is used when an invalid email address length is used to create an account
-var ErrInvalidEmailLength = errors.New("Invalid email address length. Account creation failed.")
+var ErrInvalidEmailLength = errors.New("Invalid email address length. Account creation failed")
 
 // ErrInvalidEmailMatching is used when eamil regex matching fails
-var ErrInvalidEmailMatching = errors.New("Invalid email - bad matching. Account creation failed.")
+var ErrInvalidEmailMatching = errors.New("Invalid email - bad matching. Account creation failed")
 
 // ErrInvalidEmail is used when an invalid email address is used to create an account
-var ErrInvalidEmail = errors.New("Invalid email address used. Account creation failed.")
+var ErrInvalidEmail = errors.New("Invalid email address used. Account creation failed")

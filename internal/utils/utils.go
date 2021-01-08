@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -19,14 +18,15 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/dgrijalva/jwt-go"
-	"github.com/fatih/color"
 	"github.com/joho/godotenv"
 	"github.com/super-type/supertype/pkg/authenticating"
 	"github.com/super-type/supertype/pkg/storage"
+	"go.uber.org/zap"
 )
 
 // SetupAWSSession starts an AWS session
 func SetupAWSSession() *dynamodb.DynamoDB {
+	zap.S().Info("Starting AWS session...")
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		// Specify profile to load for the session's config
 		// TODO do we need this?
@@ -43,6 +43,7 @@ func SetupAWSSession() *dynamodb.DynamoDB {
 
 	// Create DynamoDB client
 	svc := dynamodb.New(sess)
+	zap.S().Info("Successfully created DynamoDB client!")
 	return svc
 }
 
@@ -58,9 +59,11 @@ func Contains(s []string, e string) bool {
 
 // GenerateJWT generates a JWT on user authentication
 func GenerateJWT(username string) (*string, error) {
+	zap.S().Info("Generating JWT...")
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		zap.S().Errorf("Error loading .env file")
+		return nil, err
 	}
 	signingKey := os.Getenv("JWT_SIGNING_KEY")
 
@@ -72,25 +75,28 @@ func GenerateJWT(username string) (*string, error) {
 
 	tokenStr, err := token.SignedString([]byte(signingKey))
 	if err != nil {
+		zap.S().Errorf("Error generating token string: %v", err)
 		return nil, err
 	}
 
+	zap.S().Info("Successfully generated JWT!")
 	return &tokenStr, nil
 }
 
 // GenerateSupertypeID generates a new Supertype ID for a given password
 func GenerateSupertypeID(password string) (*string, error) {
+	zap.S().Info("Generating Supertype ID...")
 	requestBody, err := json.Marshal(map[string]string{
 		"password": password,
 	})
 	if err != nil {
-		color.Red("Error marshaling data")
+		zap.S().Errorf("Error encoding request %s : %v", fmt.Sprint(requestBody), err)
 		return nil, storage.ErrMarshaling
 	}
 
 	resp, err := http.Post("https://z1lwetrbfe.execute-api.us-east-1.amazonaws.com/default/generate-nuid-credentials", "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
-		color.Red("Error requesting Supertype API")
+		zap.S().Errorf("Error requesting Supertype API: %v", err)
 		return nil, authenticating.ErrRequestingAPI
 	}
 
@@ -98,13 +104,14 @@ func GenerateSupertypeID(password string) (*string, error) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		color.Red("Can't read response body")
+		zap.S().Errorf("Cannot read response body: %v", err)
 		return nil, authenticating.ErrResponseBody
 	}
 
 	var supertypeID string
 	json.Unmarshal(body, &supertypeID)
 
+	zap.S().Infof("Successfully generated SupertypeID %s", supertypeID)
 	return &supertypeID, nil
 }
 
@@ -112,6 +119,7 @@ func GenerateSupertypeID(password string) (*string, error) {
 func ValidateEmail(email string) bool {
 	var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
 	if len(email) < 3 && len(email) > 254 {
+		zap.S().Errorf("Invalid email length: %s", email)
 		return false
 	}
 	return emailRegex.MatchString(email)
@@ -128,19 +136,19 @@ func IsAuthorized(endpoint func(w http.ResponseWriter, r *http.Request)) func(ht
 			token, err := jwt.Parse(r.Header["Token"][0], func(token *jwt.Token) (interface{}, error) {
 				err := godotenv.Load()
 				if err != nil {
-					fmt.Println(err)
+					zap.S().Errorf("Error loading .env file: %v", err)
 					return nil, authenticating.ErrNotAuthorized
 				}
 
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					fmt.Println(err)
+					zap.S().Error("Error signing token")
 					return nil, authenticating.ErrNotAuthorized
 				}
 
 				return []byte(os.Getenv("JWT_SIGNING_KEY")), nil
 			})
 			if err != nil {
-				fmt.Println(err)
+				zap.S().Errorf("Error generating token: %v", err)
 				return
 			}
 
@@ -148,7 +156,7 @@ func IsAuthorized(endpoint func(w http.ResponseWriter, r *http.Request)) func(ht
 				endpoint(w, r)
 			}
 		} else {
-			fmt.Println("Token was nil")
+			zap.S().Error("Token was nil")
 		}
 	})
 }
@@ -164,7 +172,7 @@ func GetAPIKeyHash(skVendor string) string {
 // TODO move this to a better file location on reorg
 func ValidateNewSubscriberURL(jsonString string, endpoint string) error {
 	if strings.Contains(jsonString, endpoint) {
-		color.Red("Webhook URL already subscribed")
+		zap.S().Errorw("Webhook URL %s already subscribed!", endpoint)
 		return errors.New("Webhook URL already subscribed")
 	}
 
