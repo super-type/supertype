@@ -15,25 +15,28 @@ import (
 	"github.com/super-type/supertype/pkg/authenticating"
 	"github.com/super-type/supertype/pkg/producing"
 	"github.com/super-type/supertype/pkg/storage"
+	"go.uber.org/zap"
 )
 
 // Produce produces encyrpted data to Supertype
 func (d *Storage) Produce(o producing.ObservationRequest, apiKey string) error {
+	zap.S().Info("Producing new observation...")
 	apiKeyHash := utils.GetAPIKeyHash(apiKey)
 	databaseAPIKeyHash, err := ScanDynamoDBWithKeyCondition("vendor", "apiKeyHash", "apiKeyHash", apiKeyHash)
 	if err != nil || databaseAPIKeyHash == nil {
+		zap.S().Errorf("Error getting API Key hash %s : %v", apiKeyHash, err)
 		return err
 	}
 
 	pk, err := ScanDynamoDBWithKeyCondition("vendor", "pk", "apiKeyHash", apiKeyHash)
 	if err != nil || pk == nil {
-		fmt.Println(err)
+		zap.S().Errorf("Error getting vendor's public key given API Key: %v", err)
 		return err
 	}
 
 	// Compare requesting API Key with our internal API Key. If they don't match, it's not coming from the vendor
 	if *databaseAPIKeyHash != apiKeyHash {
-		color.Red("!!! Vendor secret key hashes do no match - potential malicious attempt !!!")
+		zap.S().Errorf("Stored API hash does not match given (%s) - potential malicious attempt!", apiKeyHash)
 		return storage.ErrAPIKeyDoesNotMatch
 	}
 
@@ -54,22 +57,25 @@ func (d *Storage) Produce(o producing.ObservationRequest, apiKey string) error {
 	// Upload new observation to DynamoDB
 	err = PutItemInDynamoDB(d.Observation, o.Attribute, svc)
 	if err != nil {
+		zap.S().Errorf("Error putting vendor %s in DynamoDB: %v", fmt.Sprint(d.Observation), err)
 		return err
 	}
 
 	// 1. Associate supertypeID with user, and get all vendors associated with that user
 	username, err := ScanDynamoDBWithKeyCondition("user", "username", "supertypeID", o.SupertypeID)
 	if err != nil {
+		zap.S().Errorf("Username already exists: %v", err)
 		return err
 	}
 	result, err := GetItemDynamoDB(svc, "user", "username", *username)
 	if err != nil {
+		zap.S().Errorf("Failed to get username %s from DynamoDB: %v", *username, err)
 		return err
 	}
 	user := authenticating.UserWithVendors{}
 	err = dynamodbattribute.UnmarshalMap(result.Item, &user)
 	if err != nil {
-		color.Red("Error unmarshaling data")
+		zap.S().Errorf("Error unmarshaling user: %v", err)
 		return storage.ErrUnmarshaling
 	}
 	var webhooks []string
@@ -78,10 +84,12 @@ func (d *Storage) Produce(o producing.ObservationRequest, apiKey string) error {
 	for _, vendor := range user.Vendors {
 		username, err := ScanDynamoDBWithKeyCondition("vendor", "username", "pk", vendor)
 		if err != nil {
+			zap.S().Errorf("Username already exists: %v", err)
 			return err
 		}
 		result, err := GetItemDynamoDB(svc, "vendor", "username", *username)
 		if err != nil {
+			zap.S().Errorf("Failed to get username %s from DynamoDB: %v", *username, err)
 			return err
 		}
 		for _, url := range result.Item["webhooks"].L {
@@ -96,15 +104,18 @@ func (d *Storage) Produce(o producing.ObservationRequest, apiKey string) error {
 	// Get attribute from subscribers
 	result, err = GetItemDynamoDB(svc, "subscribers", "attribute", destination[0])
 	if err != nil {
+		zap.S().Errorf("Failed to get subscribers %v from DynamoDB: %v", destination[0], err)
 		return err
 	}
 	var levels interface{}
 	err = dynamodbattribute.UnmarshalMap(result.Item, &levels)
 	if err != nil {
+		zap.S().Errorf("Error unmarshaling item %v", err)
 		return err
 	}
 
 	if levels == nil {
+		zap.S().Errorf("Attribute %v not found: %v", destination[0])
 		return errors.New("Couldn't find attribute")
 	}
 
@@ -125,14 +136,14 @@ func (d *Storage) Produce(o producing.ObservationRequest, apiKey string) error {
 				"supertypeID": d.Observation.SupertypeID,
 			})
 			if err != nil {
-				color.Red("Error marshaling data")
+				zap.S().Errorf("Error encoding request %s: %v", fmt.Sprint(requestBody), err)
 				return err
 			}
 
 			client := &http.Client{}
 			req, err := http.NewRequest("POST", webhookURL, bytes.NewReader(requestBody))
 			if err != nil {
-				fmt.Println(err)
+				zap.S().Errorf("Error creating HTTP request: %v", err)
 				return err
 			}
 			req.Header.Add("Content-Type", "application/json")
@@ -140,16 +151,18 @@ func (d *Storage) Produce(o producing.ObservationRequest, apiKey string) error {
 
 			resp, err := client.Do(req)
 			if err != nil {
-				color.Red("Error sending Webhook request")
+				zap.S().Errorf("Error sending HTTP request: %v", err)
 				return err
 			}
 
 			// TODO make this more granular
 			if resp.StatusCode >= 400 && resp.StatusCode < 600 {
+				zap.S().Errorf("Invalid Webhook response: %v", resp.StatusCode)
 				return errors.New("Error sending Webhook request")
 			}
 		}
 	}
 
+	zap.S().Info("Successfully produced new observation!")
 	return nil
 }
